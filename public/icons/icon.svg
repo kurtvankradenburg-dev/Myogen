@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" fill="#050505" rx="40"/>
+  <!-- DNA helix icon in cyan, rotated 45deg -->
+  <g transform="translate(96,96) rotate(45)" stroke="#00F0FF" stroke-width="5" stroke-linecap="round" fill="none">
+    <!-- Left strand -->
+    <path d="M-20,-60 C-20,-40 20,-20 20,0 C20,20 -20,40 -20,60"/>
+    <!-- Right strand -->
+    <path d="M20,-60 C20,-40 -20,-20 -20,0 C-20,20 20,40 20,60"/>
+    <!-- Rungs -->
+    <line x1="-20" y1="-44" x2="20" y2="-44"/>
+    <line x1="-8" y1="-22" x2="8" y2="-22"/>
+    <line x1="-8" y1="0" x2="8" y2="0"/>
+    <line x1="-8" y1="22" x2="8" y2="22"/>
+    <line x1="-20" y1="44" x2="20" y2="44"/>
+  </g>
+</svg>

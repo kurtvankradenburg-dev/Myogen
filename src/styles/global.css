@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border-color: #27272A;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: #050505;
+    color: #FAFAFA;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Manrope', sans-serif;
+    letter-spacing: -0.025em;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-black font-semibold rounded-full px-6 py-3 transition-all duration-300 inline-flex items-center justify-center gap-2 cursor-pointer;
+    box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  }
+
+  .btn-primary:hover {
+    opacity: 0.9;
+    box-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-outline {
+    @apply border text-foreground font-medium rounded-full px-6 py-3 transition-all duration-300 inline-flex items-center justify-center gap-2 cursor-pointer;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: transparent;
+  }
+
+  .btn-outline:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .btn-ghost {
+    @apply text-muted-foreground font-medium px-4 py-2 rounded-lg transition-all duration-200 inline-flex items-center justify-center gap-2 cursor-pointer;
+    background: transparent;
+    border: none;
+  }
+
+  .btn-ghost:hover {
+    color: #FAFAFA;
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .card-glow {
+    @apply relative overflow-hidden rounded-xl bg-card;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: #0A0A0A;
+  }
+
+  .card-glow::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-500 pointer-events-none;
+    background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, transparent 50%);
+  }
+
+  .card-glow:hover::before {
+    @apply opacity-100;
+  }
+
+  .glass {
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: saturate(150%) blur(24px);
+    -webkit-backdrop-filter: saturate(150%) blur(24px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #00F0FF 0%, #00A0AA 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .glow-text {
+    text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+  }
+
+  .label-overline {
+    @apply uppercase tracking-widest text-xs font-medium;
+    color: #A1A1AA;
+  }
+
+  .input-style {
+    @apply w-full rounded-lg px-4 py-3 text-sm text-foreground transition-colors outline-none;
+    background: rgba(24, 24, 27, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #FAFAFA;
+  }
+
+  .input-style:focus {
+    background: #0A0A0A;
+    border-color: rgba(0, 240, 255, 0.4);
+    box-shadow: 0 0 0 2px rgba(0, 240, 255, 0.15);
+  }
+
+  .input-style::placeholder {
+    color: #A1A1AA;
+  }
+}
+
+@layer utilities {
+  .animate-delay-100 { animation-delay: 100ms; }
+  .animate-delay-200 { animation-delay: 200ms; }
+  .animate-delay-300 { animation-delay: 300ms; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #18181B; }
+::-webkit-scrollbar-thumb { background: rgba(161, 161, 170, 0.3); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(161, 161, 170, 0.5); }
+
+::selection { background: rgba(0, 240, 255, 0.3); }
+
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #050505, 0 0 0 4px #00F0FF;
+}

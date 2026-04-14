@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:physique-analyzer-9.emergent.host)",
+      "Bash(node -e ':*)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(git clone:*)",
+      "Bash(npx vite:*)",
+      "Bash(node:*)",
+      "Bash(magick --version)",
+      "Bash(convert --version)",
+      "Bash(npm uninstall:*)",
+      "Bash(netstat -ano)",
+      "Bash(taskkill:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell:*)",
+      "Bash(ollama serve:*)",
+      "Bash(ollama pull:*)",
+      "Bash(jobs -l)",
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:physique-analyzer-12.preview.emergentagent.com)"
+    ]
+  }
+}
