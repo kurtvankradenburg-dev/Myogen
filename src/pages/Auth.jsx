@@ -5,6 +5,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
   GoogleAuthProvider,
   updateProfile,
   sendEmailVerification,
@@ -54,9 +55,18 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
       await signInWithPopup(auth, googleProvider);
       // onAuthStateChanged in App.jsx handles navigation
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (err.code === 'auth/popup-blocked') {
+        // Popup was blocked — fall back to redirect
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return; // page will navigate away; finally will still reset loading
+        } catch {
+          setError('Popup blocked. Please allow popups for this site and try again.');
+        }
+      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setError(err.message || 'Google sign-in failed. Please try again.');
       }
+    } finally {
       setLoading(false);
     }
   }

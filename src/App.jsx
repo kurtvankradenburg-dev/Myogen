@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import './styles/global.css';
 import { auth, isFirebaseConfigured } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, getRedirectResult, signOut } from 'firebase/auth';
 import { getAuthToken } from './authToken';
 
 import Splash from './components/Splash';
@@ -80,6 +80,14 @@ export default function App() {
       setTimeout(() => setShowSplash(false), 2000);
       return;
     }
+
+    // Handle redirect-based auth results (fallback when popups are blocked)
+    getRedirectResult(auth).catch(err => {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setGoogleAuthError(err.message || 'Google sign-in failed. Please try again.');
+        setPage('auth');
+      }
+    });
 
     // Firebase auth state listener — handles session restore + all changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
