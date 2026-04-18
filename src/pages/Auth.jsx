@@ -4,7 +4,6 @@ import { auth, isFirebaseConfigured } from '../firebase';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
   signInWithRedirect,
   GoogleAuthProvider,
   updateProfile,
@@ -52,21 +51,12 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
     }
 
     try {
-      await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged in App.jsx handles navigation
+      // Redirect is more reliable than popup across all browsers/environments.
+      // The page navigates to Google, then back; onAuthStateChanged + getRedirectResult
+      // in App.jsx complete the sign-in on return.
+      await signInWithRedirect(auth, googleProvider);
     } catch (err) {
-      if (err.code === 'auth/popup-blocked') {
-        // Popup was blocked — fall back to redirect
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return; // page will navigate away; finally will still reset loading
-        } catch {
-          setError('Popup blocked. Please allow popups for this site and try again.');
-        }
-      } else if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-        setError(err.message || 'Google sign-in failed. Please try again.');
-      }
-    } finally {
+      setError(err.message || 'Google sign-in failed. Please try again.');
       setLoading(false);
     }
   }

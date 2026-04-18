@@ -81,9 +81,10 @@ export default function App() {
       return;
     }
 
-    // Handle redirect-based auth results (fallback when popups are blocked)
+    // Process the result when the page returns from a Google redirect sign-in.
+    // onAuthStateChanged below also fires, but getRedirectResult surfaces errors.
     getRedirectResult(auth).catch(err => {
-      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+      if (err.code && err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
         setGoogleAuthError(err.message || 'Google sign-in failed. Please try again.');
         setPage('auth');
       }
