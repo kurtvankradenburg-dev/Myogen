@@ -1,16 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" fill="#050505" rx="40"/>
-  <!-- DNA helix icon in cyan, rotated 45deg -->
-  <g transform="translate(96,96) rotate(45)" stroke="#00F0FF" stroke-width="5" stroke-linecap="round" fill="none">
-    <!-- Left strand -->
-    <path d="M-20,-60 C-20,-40 20,-20 20,0 C20,20 -20,40 -20,60"/>
-    <!-- Right strand -->
-    <path d="M20,-60 C20,-40 -20,-20 -20,0 C-20,20 20,40 20,60"/>
-    <!-- Rungs -->
-    <line x1="-20" y1="-44" x2="20" y2="-44"/>
-    <line x1="-8" y1="-22" x2="8" y2="-22"/>
-    <line x1="-8" y1="0" x2="8" y2="0"/>
-    <line x1="-8" y1="22" x2="8" y2="22"/>
-    <line x1="-20" y1="44" x2="20" y2="44"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" fill="#050505" rx="96"/>
+  <!-- Rounded container (matches Splash screen rounded-2xl card) -->
+  <rect x="96" y="96" width="320" height="320" fill="rgba(0,240,255,0.1)" stroke="rgba(0,240,255,0.3)" stroke-width="3" rx="56"/>
+  <!-- Lucide Dna icon, scaled from 24x24 to ~192x192, centered at 256,256 -->
+  <!-- translate(160,160) then scale(8) maps the 24x24 lucide viewBox into place -->
+  <g transform="translate(160,160) scale(8)" stroke="#00F0FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="m10 16 1.5 1.5"/>
+    <path d="m14 8-1.5-1.5"/>
+    <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/>
+    <path d="m16.5 10.5 1 1"/>
+    <path d="m17 6-2.891-2.891"/>
+    <path d="M2 15c6.667-6 13.333 0 20-6"/>
+    <path d="m20 9 .891.891"/>
+    <path d="M3.109 14.109 4 15"/>
+    <path d="m6.5 12.5 1 1"/>
+    <path d="m7 18 2.891 2.891"/>
+    <path d="M9 22c1.798-1.998 2.518-3.995 2.807-5.993"/>
   </g>
 </svg>

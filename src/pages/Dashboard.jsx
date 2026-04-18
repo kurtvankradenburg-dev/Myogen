@@ -9,7 +9,7 @@ const DASH_MOBILE_NAV = [
   { Icon: Brain, label: 'Knowledge', p: 'knowledge' },
 ];
 
-export default function Dashboard({ navigate, user, isPremium, setUser }) {
+export default function Dashboard({ navigate, user, isPremium, setUser, page }) {
   const firstName = user?.name?.split(' ')[0] || 'there';
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Fetch usage counts from server — not localStorage
