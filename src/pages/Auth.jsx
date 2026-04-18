@@ -1,6 +1,21 @@
 import { useState, useEffect } from 'react';
 import { Dna, ArrowLeft, Mail, Lock, User, Eye, EyeOff } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../supabase';
+import { auth, isFirebaseConfigured } from '../firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+  updateProfile,
+  sendEmailVerification,
+  signOut,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+} from 'firebase/auth';
+
+const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAuthError }) {
   const [mode, setMode] = useState('signin');
@@ -9,6 +24,7 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [signUpConfirm, setSignUpConfirm] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   useEffect(() => {
     if (googleAuthError) {
@@ -25,25 +41,24 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
   async function handleGoogle() {
     setLoading(true);
     setError('');
-    if (!isSupabaseConfigured || !supabase) {
+
+    if (!isFirebaseConfigured || !auth) {
       await new Promise(r => setTimeout(r, 700));
       setUser({ name: 'Demo User', email: 'demo@myogen.app', google: true });
       navigate('dashboard');
       setLoading(false);
       return;
     }
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: window.location.origin,
-        queryParams: { prompt: 'select_account' },
-      },
-    });
-    if (oauthError) {
-      setError(oauthError.message);
+
+    try {
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged in App.jsx handles navigation
+    } catch (err) {
+      if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
+        setError(err.message || 'Google sign-in failed. Please try again.');
+      }
       setLoading(false);
     }
-    // On success the page redirects — loading stays true intentionally
   }
 
   async function handleSubmit(e) {
@@ -53,7 +68,7 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
     setLoading(true);
     setError('');
 
-    if (!isSupabaseConfigured || !supabase) {
+    if (!isFirebaseConfigured || !auth) {
       await new Promise(r => setTimeout(r, 700));
       setUser({ name: form.name || form.email.split('@')[0], email: form.email });
       navigate('dashboard');
@@ -63,27 +78,35 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
 
     try {
       if (mode === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
-          email: form.email,
-          password: form.password,
-          options: { data: { full_name: form.name } },
-        });
-        if (signUpError) throw signUpError;
-        // If email confirmation is enabled in Supabase, show a message
+        const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, form.email, form.password);
+        await updateProfile(firebaseUser, { displayName: form.name });
+        await sendEmailVerification(firebaseUser);
+        await signOut(auth); // force sign-out until email is verified
         setSignUpConfirm(true);
       } else {
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: form.email,
-          password: form.password,
-        });
-        if (signInError) throw signInError;
-        // onAuthStateChange in App.jsx handles navigation
+        await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+        const { user: firebaseUser } = await signInWithEmailAndPassword(auth, form.email, form.password);
+        if (!firebaseUser.emailVerified) {
+          await signOut(auth);
+          setError('Please verify your email before signing in. Check your inbox for the confirmation link.');
+          setLoading(false);
+          return;
+        }
+        // onAuthStateChanged in App.jsx handles navigation
       }
     } catch (err) {
-      const msg = err.message?.includes('Invalid login credentials') ? 'Incorrect email or password.'
-        : err.message?.includes('User already registered') ? 'Email already registered. Sign in instead.'
-        : err.message?.includes('Password should be') ? 'Password must be at least 6 characters.'
-        : err.message || 'Something went wrong. Please try again.';
+      const msg =
+        err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'
+          ? 'Incorrect email or password.'
+          : err.code === 'auth/email-already-in-use'
+          ? 'Email already registered. Sign in instead.'
+          : err.code === 'auth/weak-password'
+          ? 'Password must be at least 6 characters.'
+          : err.code === 'auth/invalid-email'
+          ? 'Please enter a valid email address.'
+          : err.code === 'auth/too-many-requests'
+          ? 'Too many attempts. Please wait a moment and try again.'
+          : err.message || 'Something went wrong. Please try again.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -237,6 +260,21 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
                 </button>
               </div>
             </div>
+
+            {isSignIn && (
+              <label style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                cursor: 'pointer', userSelect: 'none',
+              }}>
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  style={{ width: 15, height: 15, accentColor: '#00F0FF', cursor: 'pointer' }}
+                />
+                <span style={{ fontSize: '13px', color: '#A1A1AA' }}>Remember me</span>
+              </label>
+            )}
 
             {error && (
               <p className="text-sm text-center py-2 px-4 rounded-lg" style={{ color: '#FF3B30', background: 'rgba(255,59,48,0.1)' }}>

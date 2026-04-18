@@ -1,7 +1,10 @@
-import { supabase, isSupabaseConfigured } from './supabase'
+import { auth, isFirebaseConfigured } from './firebase'
 
 export async function getAuthToken() {
-  if (!isSupabaseConfigured || !supabase) return null
-  const { data: { session } } = await supabase.auth.getSession()
-  return session?.access_token || null
+  if (!isFirebaseConfigured || !auth?.currentUser) return null
+  try {
+    return await auth.currentUser.getIdToken()
+  } catch {
+    return null
+  }
 }

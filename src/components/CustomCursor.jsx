@@ -1,12 +1,22 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+// Synchronous check — covers phones, tablets, hybrids, and stylus-only devices
+function detectTouch() {
+  if (typeof window === 'undefined') return true;
+  return (
+    window.matchMedia('(pointer: coarse)').matches ||
+    window.matchMedia('(hover: none)').matches
+  );
+}
 
 export default function CustomCursor() {
   const dotRef = useRef(null);
   const ringRef = useRef(null);
+  // Lazy initializer runs synchronously on first render — no flash, no re-render
+  const [isTouch] = useState(detectTouch);
 
   useEffect(() => {
-    // Only run on non-touch devices
-    if (window.matchMedia('(pointer: coarse)').matches) return;
+    if (isTouch) return;
 
     let mouseX = window.innerWidth / 2;
     let mouseY = window.innerHeight / 2;
@@ -68,12 +78,9 @@ export default function CustomCursor() {
       cancelAnimationFrame(rafId);
       document.documentElement.style.cursor = '';
     };
-  }, []);
+  }, [isTouch]);
 
-  // Don't render on touch devices
-  if (typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches) {
-    return null;
-  }
+  if (isTouch) return null;
 
   return (
     <>

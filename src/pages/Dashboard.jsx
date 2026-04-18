@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dna, Scan, Brain, Zap, LogOut, Crown, ArrowRight, Activity, ChevronRight, LayoutDashboard } from 'lucide-react';
+import { Dna, Scan, Brain, Zap, LogOut, Crown, ArrowRight, Activity, ChevronRight, LayoutDashboard, User } from 'lucide-react';
 import { getAuthToken } from '../authToken';
 
 const DASH_MOBILE_NAV = [
@@ -78,6 +78,14 @@ export default function Dashboard({ navigate, user, isPremium, setUser }) {
                 Upgrade
               </button>
             )}
+            <button
+              className="hidden md:inline-flex w-8 h-8 rounded-full items-center justify-center text-sm font-bold flex-shrink-0"
+              onClick={() => navigate('account')}
+              title={user?.name ? `${user.name} — Account` : 'Account'}
+              style={{ background: 'rgba(0,240,255,0.15)', color: '#00F0FF', border: '2px solid rgba(0,240,255,0.4)', cursor: 'pointer' }}
+            >
+              {(user?.name?.[0] || 'U').toUpperCase()}
+            </button>
             <button className="hidden md:inline-flex btn-ghost p-2" onClick={handleLogout} title="Sign out">
               <LogOut className="h-5 w-5" />
             </button>
@@ -103,6 +111,11 @@ export default function Dashboard({ navigate, user, isPremium, setUser }) {
               <Icon className="h-4 w-4" />{label}
             </button>
           ))}
+          <button onClick={() => { navigate('account'); setMobileMenuOpen(false); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+            style={{ background: 'transparent', color: '#A1A1AA', border: 'none', cursor: 'pointer' }}>
+            <User className="h-4 w-4" /> Account &amp; Settings
+          </button>
           {!isPremium && (
             <button onClick={() => { navigate('premium'); setMobileMenuOpen(false); }}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1"
@@ -206,17 +219,18 @@ export default function Dashboard({ navigate, user, isPremium, setUser }) {
       </main>
 
       {/* Mobile Nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 glass px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}>
+      <div className="md:hidden fixed bottom-0 left-0 right-0 glass px-4 py-3" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', borderBottom: 'none' }}>
         <div className="flex items-center justify-around">
           {[
             { icon: Activity, label: 'Home', page: 'dashboard' },
             { icon: Scan, label: 'Analyzer', page: 'physique' },
             { icon: Zap, label: 'Quizzes', page: 'quizzes' },
             { icon: Brain, label: 'Knowledge', page: 'knowledge' },
-          ].map(({ icon: Icon, label, page }) => (
-            <button key={page} onClick={() => navigate(page)}
+            { icon: User, label: 'Account', page: 'account' },
+          ].map(({ icon: Icon, label, page: p }) => (
+            <button key={p} onClick={() => navigate(p)}
               className="flex flex-col items-center gap-1 transition-colors"
-              style={{ color: '#A1A1AA', background: 'none', border: 'none', cursor: 'pointer' }}>
+              style={{ color: page === p ? '#00F0FF' : '#A1A1AA', background: 'none', border: 'none', cursor: 'pointer' }}>
               <Icon className="h-5 w-5" />
               <span className="text-xs">{label}</span>
             </button>

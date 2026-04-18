@@ -209,10 +209,10 @@ export default function Landing({ navigate }) {
               Educational platform only. Not medical advice. Consult healthcare professionals for personal health decisions.
             </p>
             <div className="flex items-center gap-6 text-sm" style={{ color: '#A1A1AA' }}>
-              <a href="#" style={{ color: '#A1A1AA' }}
+              <button onClick={() => navigate('privacy')} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#A1A1AA', fontSize: '14px', fontFamily: 'Inter, sans-serif' }}
                 onMouseEnter={e => e.target.style.color = '#FAFAFA'} onMouseLeave={e => e.target.style.color = '#A1A1AA'}>
                 Privacy
-              </a>
+              </button>
               <a href="#" style={{ color: '#A1A1AA' }}
                 onMouseEnter={e => e.target.style.color = '#FAFAFA'} onMouseLeave={e => e.target.style.color = '#A1A1AA'}>
                 Terms

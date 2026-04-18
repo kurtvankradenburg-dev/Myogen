@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './styles/global.css';
-import { supabase, isSupabaseConfigured } from './supabase';
+import { auth, isFirebaseConfigured } from './firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { getAuthToken } from './authToken';
 
 import Splash from './components/Splash';
@@ -13,45 +14,46 @@ import Quizzes from './pages/Quizzes';
 import Premium from './pages/Premium';
 import ReauthModal from './components/ReauthModal';
 import Account from './pages/Account';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import CookieBanner, { hasConsent } from './components/CookieBanner';
+import InstallPrompt from './components/InstallPrompt';
+import { initAnalytics } from './analytics';
 
-// Always-premium email address
 const PERMANENT_PREMIUM_EMAIL = 'kurtvankradenburg@gmail.com';
-
-// 3 months in ms
 const INACTIVITY_LIMIT_MS = 90 * 24 * 60 * 60 * 1000;
 
 const PAGE_TITLES = {
-  landing: 'Myogen | Home',
-  auth: 'Myogen | Sign In',
-  signup: 'Myogen | Create Account',
+  landing:   'Myogen | Home',
+  auth:      'Myogen | Sign In',
+  signup:    'Myogen | Create Account',
   dashboard: 'Myogen | Dashboard',
-  physique: 'Myogen | Physique Analyzer',
+  physique:  'Myogen | Physique Analyzer',
   knowledge: 'Myogen | Knowledge Centre',
-  quizzes: 'Myogen | Study Quizzes',
-  premium: 'Myogen | Pricing',
-  account: 'Myogen | Account',
+  quizzes:   'Myogen | Study Quizzes',
+  premium:   'Myogen | Pricing',
+  account:   'Myogen | Account',
+  privacy:   'Myogen | Privacy Policy',
 };
 
-function mapSupabaseUser(supabaseUser) {
-  const provider = supabaseUser.app_metadata?.provider;
+function mapFirebaseUser(firebaseUser) {
+  const isGoogle = firebaseUser.providerData?.[0]?.providerId === 'google.com';
   return {
-    name: supabaseUser.user_metadata?.full_name ||
-          supabaseUser.user_metadata?.name ||
-          supabaseUser.email?.split('@')[0],
-    email: supabaseUser.email,
-    uid: supabaseUser.id,
-    google: provider === 'google',
+    name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+    email: firebaseUser.email,
+    uid: firebaseUser.uid,
+    google: isGoogle,
+    emailVerified: firebaseUser.emailVerified,
   };
 }
 
 export default function App() {
-  const [showSplash, setShowSplash] = useState(true);
-  const [page, setPage] = useState('landing');
-  const [user, setUser] = useState(null);
-  const [isPremium, setIsPremium] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [authChecked, setAuthChecked] = useState(false);
-  const [showReauth, setShowReauth] = useState(false);
+  const [showSplash, setShowSplash]       = useState(true);
+  const [page, setPage]                   = useState('landing');
+  const [user, setUser]                   = useState(null);
+  const [isPremium, setIsPremium]         = useState(false);
+  const [apiKey, setApiKey]               = useState('');
+  const [authChecked, setAuthChecked]     = useState(false);
+  const [showReauth, setShowReauth]       = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState('');
 
   useEffect(() => {
@@ -59,7 +61,12 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!isSupabaseConfigured || !supabase) {
+    if (hasConsent()) initAnalytics();
+  }, []);
+
+  useEffect(() => {
+    // Demo mode when Firebase isn't configured
+    if (!isFirebaseConfigured || !auth) {
       const savedUser = localStorage.getItem('myogen_user');
       if (savedUser) {
         try {
@@ -74,47 +81,46 @@ export default function App() {
       return;
     }
 
-    // Restore session on load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        const u = mapSupabaseUser(session.user);
-        setUser(u);
-        localStorage.setItem('myogen_user', JSON.stringify(u));
-        checkPremium(u);
-        checkInactivity(u);
-        setPage(prev => (['landing', 'auth', 'signup'].includes(prev) ? 'dashboard' : prev));
-      }
-      setAuthChecked(true);
-    });
+    // Firebase auth state listener — handles session restore + all changes
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const isGoogle = firebaseUser.providerData?.[0]?.providerId === 'google.com';
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        // Enforce Gmail-only for Google sign-ins
-        if (session.user.app_metadata?.provider === 'google') {
-          const email = session.user.email?.toLowerCase() || '';
+        // Gmail-only enforcement for Google sign-ins
+        if (isGoogle) {
+          const email = firebaseUser.email?.toLowerCase() || '';
           if (!email.endsWith('@gmail.com') && !email.endsWith('@googlemail.com')) {
-            await supabase.auth.signOut();
-            setGoogleAuthError('Only personal Gmail accounts (@gmail.com) are supported. Please sign in with a Gmail address.');
+            await signOut(auth);
+            setGoogleAuthError('Only personal Gmail accounts (@gmail.com) are supported.');
             setPage('auth');
+            setAuthChecked(true);
             return;
           }
         }
-        const u = mapSupabaseUser(session.user);
+
+        // Block email/password users who haven't verified their email
+        if (!isGoogle && !firebaseUser.emailVerified) {
+          setAuthChecked(true);
+          return;
+        }
+
+        const u = mapFirebaseUser(firebaseUser);
         setUser(u);
         localStorage.setItem('myogen_user', JSON.stringify(u));
         checkPremium(u);
         checkInactivity(u);
-        setPage(prev => (['landing', 'auth', 'signup'].includes(prev) ? 'dashboard' : prev));
-      } else if (event === 'SIGNED_OUT') {
+        setPage(prev => ['landing', 'auth', 'signup'].includes(prev) ? 'dashboard' : prev);
+      } else {
         setUser(null);
         setIsPremium(false);
         localStorage.removeItem('myogen_user');
         localStorage.removeItem('myogen_premium');
       }
+      setAuthChecked(true);
     });
 
     setTimeout(() => setShowSplash(false), 2000);
-    return () => subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   async function checkPremium(u) {
@@ -188,13 +194,13 @@ export default function App() {
     recordActivity();
   }
 
-  function handleReauthLogout() {
+  async function handleReauthLogout() {
     setShowReauth(false);
     setUser(null);
     setIsPremium(false);
     localStorage.removeItem('myogen_user');
     localStorage.removeItem('myogen_last_active');
-    if (supabase) supabase.auth.signOut();
+    if (auth) await signOut(auth);
     setPage('auth');
   }
 
@@ -209,9 +215,7 @@ export default function App() {
     page,
   };
 
-  if (!authChecked) {
-    return <Splash />;
-  }
+  if (!authChecked) return <Splash />;
 
   const renderPage = () => {
     switch (page) {
@@ -223,6 +227,7 @@ export default function App() {
       case 'quizzes':   return <Quizzes {...commonProps} />;
       case 'premium':   return <Premium {...commonProps} />;
       case 'account':   return <Account {...commonProps} />;
+      case 'privacy':   return <PrivacyPolicy navigate={navigate} />;
       default:          return <Landing {...commonProps} />;
     }
   };
@@ -240,6 +245,11 @@ export default function App() {
           onLogout={handleReauthLogout}
         />
       )}
+      <CookieBanner
+        onAccept={initAnalytics}
+        onPrivacyClick={() => navigate('privacy')}
+      />
+      <InstallPrompt />
     </>
   );
 }

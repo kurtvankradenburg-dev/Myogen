@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
-const cfg = {
+// measurementId is optional (Analytics only) — kept separate from the required fields check
+const requiredCfg = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain:        import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId:         import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -10,8 +11,13 @@ const cfg = {
   appId:             import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+const cfg = {
+  ...requiredCfg,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+};
+
 export const isFirebaseConfigured =
-  Object.values(cfg).every(v => v && v !== 'undefined' && !v.includes('xxxx'));
+  Object.values(requiredCfg).every(v => v && v !== 'undefined' && !v.includes('xxxx'));
 
 let auth = null;
 let googleProvider = null;
