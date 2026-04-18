@@ -21,7 +21,18 @@
       "Bash(ollama pull:*)",
       "Bash(jobs -l)",
       "Bash(xargs grep:*)",
-      "WebFetch(domain:physique-analyzer-12.preview.emergentagent.com)"
+      "WebFetch(domain:physique-analyzer-12.preview.emergentagent.com)",
+      "Bash(grep:*)",
+      "Bash(findstr :3001)",
+      "Bash(findstr LISTENING)",
+      "Bash(cmd:*)",
+      "Bash(xargs -r -I{} cmd /c \"taskkill /PID {} /F\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git checkout:*)",
+      "Bash(git fetch:*)",
+      "Bash(git remote:*)"
     ]
   }
 }
