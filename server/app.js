@@ -289,7 +289,9 @@ app.get('/api/health', async (req, res) => {
       ollamaOk = r.ok;
     } catch {}
   }
-  res.json({ ok: true, provider, ollama: provider === 'ollama', ollamaOk });
+  // available = has a real cloud API key, OR ollama is actually running
+  const available = provider !== 'ollama' || ollamaOk;
+  res.json({ ok: true, provider, available, ollama: provider === 'ollama', ollamaOk });
 });
 
 // ── User status (premium + usage) ────────────────────────────────────────

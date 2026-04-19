@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 const CONSENT_KEY = 'myogen_cookie_consent';
 
 export function hasConsent() {
-  return localStorage.getItem(CONSENT_KEY) === 'true';
+  return sessionStorage.getItem(CONSENT_KEY) === 'true';
 }
 
 export default function CookieBanner({ onAccept, onPrivacyClick }) {
@@ -18,7 +18,7 @@ export default function CookieBanner({ onAccept, onPrivacyClick }) {
   if (!visible) return null;
 
   function handleAccept() {
-    localStorage.setItem(CONSENT_KEY, 'true');
+    sessionStorage.setItem(CONSENT_KEY, 'true');
     setVisible(false);
     onAccept?.();
   }

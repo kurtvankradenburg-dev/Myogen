@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Download, X, Share } from 'lucide-react';
 
-const DISMISSED_KEY = 'myogen_install_dismissed';
+// Use sessionStorage — shows each browser session, not permanently dismissed
+const DISMISSED_KEY = 'myogen_install_dismissed_session';
 
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
@@ -20,21 +21,18 @@ export default function InstallPrompt() {
   const [iosMode, setIosMode] = useState(false);
 
   useEffect(() => {
-    // Never show if already installed or permanently dismissed
     if (isInStandaloneMode()) return;
-    if (localStorage.getItem(DISMISSED_KEY)) return;
+    if (sessionStorage.getItem(DISMISSED_KEY)) return;
 
     if (isIOS()) {
       setIosMode(true);
-      // Delay so it doesn't immediately interrupt the first visit
-      const t = setTimeout(() => setVisible(true), 5000);
+      const t = setTimeout(() => setVisible(true), 4000);
       return () => clearTimeout(t);
     }
 
-    // Chrome / Edge / Android — capture the native prompt before it fires
     const onPrompt = (e) => {
       e.preventDefault();
-      window.__myogenInstallPrompt = e; // share with Account page
+      window.__myogenInstallPrompt = e;
       setDeferredPrompt(e);
       setVisible(true);
     };
@@ -43,7 +41,7 @@ export default function InstallPrompt() {
   }, []);
 
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, '1');
+    sessionStorage.setItem(DISMISSED_KEY, '1');
     setVisible(false);
   }
 
@@ -64,17 +62,17 @@ export default function InstallPrompt() {
       aria-label="Install Myogen app"
       style={{
         position: 'fixed',
-        bottom: 72,
+        bottom: 24,
         left: '50%',
         transform: 'translateX(-50%)',
         width: 'calc(100% - 32px)',
-        maxWidth: 400,
+        maxWidth: 420,
         zIndex: 9997,
-        backgroundColor: '#111111',
-        border: '1px solid rgba(0,240,255,0.2)',
-        borderRadius: 16,
-        padding: '16px 20px',
-        boxShadow: '0 0 40px rgba(0,240,255,0.08), 0 12px 40px rgba(0,0,0,0.6)',
+        backgroundColor: '#0F0F0F',
+        border: '1px solid rgba(0,240,255,0.18)',
+        borderRadius: 20,
+        padding: '20px 20px 18px',
+        boxShadow: '0 0 60px rgba(0,240,255,0.07), 0 20px 60px rgba(0,0,0,0.7)',
       }}
     >
       {/* Dismiss */}
@@ -82,48 +80,43 @@ export default function InstallPrompt() {
         onClick={dismiss}
         aria-label="Dismiss"
         style={{
-          position: 'absolute', top: 10, right: 10,
-          background: 'none', border: 'none', cursor: 'pointer',
-          color: '#71717A', display: 'flex', padding: 4, borderRadius: 4,
+          position: 'absolute', top: 12, right: 12,
+          background: 'rgba(255,255,255,0.06)', border: 'none', cursor: 'pointer',
+          color: '#71717A', display: 'flex', padding: 6, borderRadius: 8,
+          transition: 'background 0.2s',
         }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.06)'}
       >
-        <X size={15} />
+        <X size={14} />
       </button>
 
-      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-        {/* Icon */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
+        {/* App icon */}
         <div style={{
-          width: 42, height: 42, borderRadius: 10, flexShrink: 0,
-          background: 'rgba(0,240,255,0.1)',
+          width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+          background: 'rgba(0,240,255,0.08)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '1px solid rgba(0,240,255,0.15)',
+          border: '1px solid rgba(0,240,255,0.2)',
         }}>
           {iosMode
-            ? <Share size={18} style={{ color: '#00F0FF' }} />
-            : <Download size={18} style={{ color: '#00F0FF' }} />}
+            ? <Share size={22} style={{ color: '#00F0FF' }} />
+            : <Download size={22} style={{ color: '#00F0FF' }} />}
         </div>
 
         {/* Text */}
-        <div style={{ flex: 1, paddingRight: 16 }}>
+        <div style={{ flex: 1, paddingRight: 24 }}>
           <p style={{
-            fontFamily: 'Manrope, sans-serif', fontWeight: 600,
-            fontSize: 14, marginBottom: 4,
+            fontFamily: 'Manrope, sans-serif', fontWeight: 700,
+            fontSize: 15, marginBottom: 3, color: '#FAFAFA',
           }}>
             Install Myogen
           </p>
-          {iosMode ? (
-            <p style={{ color: '#A1A1AA', fontSize: 12, lineHeight: 1.6 }}>
-              In Safari, tap the{' '}
-              <strong style={{ color: '#FAFAFA' }}>Share</strong> icon (
-              <Share size={10} style={{ display: 'inline', verticalAlign: 'middle', marginBottom: 1, color: '#A1A1AA' }} />
-              ) at the bottom of your screen, then tap{' '}
-              <strong style={{ color: '#FAFAFA' }}>Add to Home Screen</strong>.
-            </p>
-          ) : (
-            <p style={{ color: '#A1A1AA', fontSize: 12, lineHeight: 1.6 }}>
-              Get the full app experience — fast, offline-ready, and always one tap away.
-            </p>
-          )}
+          <p style={{ color: '#A1A1AA', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
+            {iosMode
+              ? <>Tap <strong style={{ color: '#FAFAFA' }}>Share</strong> then <strong style={{ color: '#FAFAFA' }}>Add to Home Screen</strong></>
+              : 'Fast, always one tap away from your home screen.'}
+          </p>
         </div>
       </div>
 
@@ -132,17 +125,18 @@ export default function InstallPrompt() {
         <button
           onClick={install}
           style={{
-            marginTop: 14,
+            marginTop: 16,
             width: '100%',
             backgroundColor: '#00F0FF',
             color: '#050505',
-            fontWeight: 600,
-            fontSize: 13,
+            fontWeight: 700,
+            fontSize: 14,
             border: 'none',
-            borderRadius: 999,
-            padding: '9px 0',
+            borderRadius: 12,
+            padding: '11px 0',
             cursor: 'pointer',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Manrope, sans-serif',
+            letterSpacing: '0.2px',
           }}
         >
           Install App

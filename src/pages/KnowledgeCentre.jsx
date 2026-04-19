@@ -88,7 +88,7 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
   useEffect(() => {
     fetch('/api/health')
       .then(r => r.json())
-      .then(d => setBackendStatus(d.provider ? 'ok' : 'no-key'))
+      .then(d => setBackendStatus(d.available ? 'ok' : 'no-key'))
       .catch(() => setBackendStatus('offline'));
 
     // Fetch real usage count from server (not localStorage)
