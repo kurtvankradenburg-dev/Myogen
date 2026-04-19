@@ -291,7 +291,16 @@ app.get('/api/health', async (req, res) => {
   }
   // available = has a real cloud API key, OR ollama is actually running
   const available = provider !== 'ollama' || ollamaOk;
-  res.json({ ok: true, provider, available, ollama: provider === 'ollama', ollamaOk });
+  res.json({
+    ok: true,
+    provider,
+    available,
+    keys: {
+      groq:      !!process.env.GROQ_API_KEY,
+      openai:    !!process.env.OPENAI_API_KEY,
+      anthropic: !!process.env.ANTHROPIC_API_KEY,
+    },
+  });
 });
 
 // ── User status (premium + usage) ────────────────────────────────────────
