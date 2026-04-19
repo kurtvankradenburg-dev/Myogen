@@ -185,6 +185,92 @@ async function verifyPayPalSubscription(subscriptionId) {
 // ── In-memory OTP store ───────────────────────────────────────────────────
 const otpStore = new Map();
 
+// ── Firebase Admin (lazy, optional) ──────────────────────────────────────
+let _firebaseAdmin = null;
+async function getFirebaseAdmin() {
+  if (_firebaseAdmin) return _firebaseAdmin;
+  const projectId   = process.env.FIREBASE_ADMIN_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+  const privateKey  = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  if (!projectId || !clientEmail || !privateKey) return null;
+  try {
+    const { default: admin } = await import('firebase-admin');
+    if (!admin.apps.length) {
+      admin.initializeApp({ credential: admin.credential.cert({ projectId, clientEmail, privateKey }) });
+    }
+    _firebaseAdmin = admin;
+    return _firebaseAdmin;
+  } catch { return null; }
+}
+
+function buildVerificationEmailHtml(verifyLink) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Verify your Myogen account</title>
+</head>
+<body style="margin:0;padding:0;background:#050505;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:#050505;min-height:100vh;">
+  <tr><td align="center" style="padding:48px 20px;">
+    <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:480px;">
+
+      <!-- Logo row -->
+      <tr><td style="padding-bottom:32px;text-align:center;">
+        <span style="font-size:16px;font-weight:700;letter-spacing:4px;color:#FAFAFA;text-decoration:none;">MYOGEN</span>
+      </td></tr>
+
+      <!-- Card -->
+      <tr><td style="background:#0A0A0A;border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;">
+
+        <!-- Card body -->
+        <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
+          <tr><td style="padding:48px 40px 40px;text-align:center;">
+
+            <!-- Envelope icon -->
+            <div style="width:72px;height:72px;margin:0 auto 28px;border-radius:50%;background:rgba(0,240,255,0.06);border:1px solid rgba(0,240,255,0.22);display:inline-block;line-height:72px;">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-top:20px;">
+                <rect x="2" y="4" width="20" height="16" rx="2" stroke="#00F0FF" stroke-width="1.5"/>
+                <path d="M2 8l10 6 10-6" stroke="#00F0FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+
+            <!-- Heading -->
+            <h1 style="margin:0 0 12px;font-size:22px;font-weight:700;color:#FAFAFA;letter-spacing:-0.3px;">Verify your email</h1>
+
+            <!-- Body text -->
+            <p style="margin:0 0 36px;font-size:15px;color:#A1A1AA;line-height:1.7;">
+              Verify your email to activate your account and start your evidence-based journey.
+            </p>
+
+            <!-- CTA button -->
+            <a href="${verifyLink}"
+              style="display:inline-block;padding:15px 44px;background:#00F0FF;color:#050505;font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;letter-spacing:0.2px;mso-padding-alt:0;">
+              <!--[if mso]><i style="letter-spacing:44px;mso-font-width:-100%;mso-text-raise:30pt">&nbsp;</i><![endif]-->
+              Verify Now
+              <!--[if mso]><i style="letter-spacing:44px;mso-font-width:-100%">&nbsp;</i><![endif]-->
+            </a>
+
+          </td></tr>
+
+          <!-- Footer divider -->
+          <tr><td style="border-top:1px solid rgba(255,255,255,0.06);padding:24px 40px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:rgba(161,161,170,0.6);line-height:1.7;">
+              This link expires in 24 hours.&nbsp; If you didn't create a Myogen account, you can safely ignore this email.
+            </p>
+          </td></tr>
+        </table>
+
+      </td></tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+}
+
 // ── AI provider detection ─────────────────────────────────────────────────
 function getProvider() {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
@@ -470,6 +556,46 @@ Return ONLY valid JSON with these exact keys (no markdown, no explanation outsid
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Send email verification ───────────────────────────────────────────────
+app.post('/api/send-verification-email', async (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  const baseUrl = process.env.APP_URL || 'https://myogen.vercel.app';
+  const continueUrl = `${baseUrl}/?emailVerified=1`;
+
+  const admin = await getFirebaseAdmin();
+
+  if (admin && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      const link = await admin.auth().generateEmailVerificationLink(email, {
+        url: continueUrl,
+        handleCodeInApp: false,
+      });
+      const nodemailer = await import('nodemailer');
+      const transporter = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: Number(process.env.SMTP_PORT) || 587,
+        secure: false,
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+      });
+      await transporter.sendMail({
+        from: `"Myogen" <${process.env.SMTP_USER}>`,
+        to: email,
+        subject: 'Verify your Myogen account',
+        html: buildVerificationEmailHtml(link),
+      });
+      return res.json({ ok: true, sent: true });
+    } catch (err) {
+      // Firebase Admin or SMTP failed — tell client to fall back
+      return res.json({ ok: true, fallback: true });
+    }
+  }
+
+  // Admin or SMTP not configured — client will use Firebase's own email
+  res.json({ ok: true, fallback: true });
 });
 
 // ── Email OTP ─────────────────────────────────────────────────────────────

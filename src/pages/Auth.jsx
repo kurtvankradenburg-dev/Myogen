@@ -80,7 +80,27 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
       if (mode === 'signup') {
         const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, form.email, form.password);
         await updateProfile(firebaseUser, { displayName: form.name });
-        await sendEmailVerification(firebaseUser);
+
+        // Try server's custom branded email first; fall back to Firebase's own email
+        let usedCustomEmail = false;
+        try {
+          const verifyRes = await fetch('/api/send-verification-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: form.email }),
+          });
+          const verifyData = await verifyRes.json().catch(() => ({ fallback: true }));
+          usedCustomEmail = verifyData.sent === true;
+        } catch {}
+
+        if (!usedCustomEmail) {
+          // Fallback: Firebase's default verification email with redirect to our success page
+          await sendEmailVerification(firebaseUser, {
+            url: `${window.location.origin}/?emailVerified=1`,
+            handleCodeInApp: false,
+          });
+        }
+
         await signOut(auth); // force sign-out until email is verified
         setSignUpConfirm(true);
       } else {
@@ -120,17 +140,47 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
 
   if (signUpConfirm) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#050505' }}>
-        <div className="max-w-md w-full mx-auto px-6 text-center">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"
-            style={{ background: 'rgba(0,240,255,0.1)' }}>
-            <Mail className="h-8 w-8" style={{ color: '#00F0FF' }} />
+      <div className="min-h-screen flex items-center justify-center px-6" style={{ backgroundColor: '#050505' }}>
+        <div className="w-full text-center" style={{ maxWidth: '400px' }}>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-2 mb-12">
+            <Dna className="h-7 w-7" strokeWidth={1.5} style={{ color: '#00F0FF' }} />
+            <span className="font-bold text-lg tracking-widest" style={{ fontFamily: 'Manrope, sans-serif' }}>MYOGEN</span>
           </div>
-          <h1 className="font-bold text-2xl mb-3" style={{ fontFamily: 'Manrope, sans-serif' }}>Check your email</h1>
-          <p className="mb-6" style={{ color: '#A1A1AA' }}>
-            We sent a confirmation link to <strong style={{ color: '#FAFAFA' }}>{form.email}</strong>.
-            Click it to activate your account, then sign in.
+
+          {/* Envelope illustration */}
+          <div className="flex justify-center mb-8">
+            <svg width="140" height="110" viewBox="0 0 140 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Letter behind envelope */}
+              <rect x="30" y="4" width="80" height="58" rx="6" fill="rgba(0,240,255,0.05)" stroke="rgba(0,240,255,0.15)" strokeWidth="1.2"/>
+              <line x1="44" y1="20" x2="96" y2="20" stroke="rgba(0,240,255,0.25)" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="44" y1="30" x2="96" y2="30" stroke="rgba(0,240,255,0.18)" strokeWidth="1.5" strokeLinecap="round"/>
+              <line x1="44" y1="40" x2="80" y2="40" stroke="rgba(0,240,255,0.12)" strokeWidth="1.5" strokeLinecap="round"/>
+              {/* Envelope body */}
+              <rect x="8" y="38" width="124" height="68" rx="8" fill="rgba(0,240,255,0.06)" stroke="rgba(0,240,255,0.3)" strokeWidth="1.4"/>
+              {/* Envelope V-fold */}
+              <path d="M8 46 L70 84 L132 46" stroke="rgba(0,240,255,0.35)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              {/* Bottom fold lines */}
+              <path d="M8 106 L48 72" stroke="rgba(0,240,255,0.15)" strokeWidth="1.2" strokeLinecap="round"/>
+              <path d="M132 106 L92 72" stroke="rgba(0,240,255,0.15)" strokeWidth="1.2" strokeLinecap="round"/>
+              {/* Cyan dot glow top-right */}
+              <circle cx="120" cy="30" r="5" fill="#00F0FF" opacity="0.7"/>
+              <circle cx="120" cy="30" r="9" fill="#00F0FF" opacity="0.12"/>
+            </svg>
+          </div>
+
+          <h1 className="font-bold text-2xl mb-3" style={{ fontFamily: 'Manrope, sans-serif' }}>
+            Check your email
+          </h1>
+          <p className="text-sm mb-2" style={{ color: '#A1A1AA', lineHeight: 1.7 }}>
+            We sent a verification link to
           </p>
+          <p className="font-semibold mb-6" style={{ color: '#FAFAFA' }}>{form.email}</p>
+          <p className="text-sm mb-10" style={{ color: '#A1A1AA', lineHeight: 1.7 }}>
+            Click the link in the email to activate your account, then come back and sign in.
+          </p>
+
           <button
             className="btn-primary w-full py-4"
             style={{ borderRadius: '12px' }}
@@ -138,6 +188,10 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
           >
             Back to Sign In
           </button>
+
+          <p className="text-xs mt-6" style={{ color: 'rgba(161,161,170,0.6)' }}>
+            Didn't receive it? Check your spam folder.
+          </p>
         </div>
       </div>
     );

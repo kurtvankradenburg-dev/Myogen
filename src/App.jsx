@@ -5,6 +5,7 @@ import { onAuthStateChanged, getRedirectResult, signOut } from 'firebase/auth';
 import { getAuthToken } from './authToken';
 
 import Splash from './components/Splash';
+import EmailVerified from './pages/EmailVerified';
 import Landing from './pages/Landing';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
@@ -23,16 +24,17 @@ const PERMANENT_PREMIUM_EMAIL = 'kurtvankradenburg@gmail.com';
 const INACTIVITY_LIMIT_MS = 90 * 24 * 60 * 60 * 1000;
 
 const PAGE_TITLES = {
-  landing:   'Myogen | Home',
-  auth:      'Myogen | Sign In',
-  signup:    'Myogen | Create Account',
-  dashboard: 'Myogen | Dashboard',
-  physique:  'Myogen | Physique Analyzer',
-  knowledge: 'Myogen | Knowledge Centre',
-  quizzes:   'Myogen | Study Quizzes',
-  premium:   'Myogen | Pricing',
-  account:   'Myogen | Account',
-  privacy:   'Myogen | Privacy Policy',
+  landing:        'Myogen | Home',
+  auth:           'Myogen | Sign In',
+  signup:         'Myogen | Create Account',
+  dashboard:      'Myogen | Dashboard',
+  physique:       'Myogen | Physique Analyzer',
+  knowledge:      'Myogen | Knowledge Centre',
+  quizzes:        'Myogen | Study Quizzes',
+  premium:        'Myogen | Pricing',
+  account:        'Myogen | Account',
+  privacy:        'Myogen | Privacy Policy',
+  'email-verified': 'Myogen | Email Verified',
 };
 
 function mapFirebaseUser(firebaseUser) {
@@ -55,6 +57,15 @@ export default function App() {
   const [authChecked, setAuthChecked]     = useState(false);
   const [showReauth, setShowReauth]       = useState(false);
   const [googleAuthError, setGoogleAuthError] = useState('');
+
+  // Handle Firebase email-verification redirect (?emailVerified=1)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('emailVerified') === '1') {
+      window.history.replaceState({}, '', window.location.pathname);
+      setPage('email-verified');
+    }
+  }, []);
 
   useEffect(() => {
     document.title = PAGE_TITLES[page] || 'Myogen';
@@ -236,8 +247,9 @@ export default function App() {
       case 'quizzes':   return <Quizzes {...commonProps} />;
       case 'premium':   return <Premium {...commonProps} />;
       case 'account':   return <Account {...commonProps} />;
-      case 'privacy':   return <PrivacyPolicy navigate={navigate} />;
-      default:          return <Landing {...commonProps} />;
+      case 'privacy':        return <PrivacyPolicy navigate={navigate} />;
+      case 'email-verified': return <EmailVerified />;
+      default:               return <Landing {...commonProps} />;
     }
   };
 
