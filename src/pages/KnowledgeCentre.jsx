@@ -180,11 +180,8 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       setBackendStatus('ok');
       // Increment local display count (server has already tracked the real count)
       if (!isPremium) setChatCount(prev => prev + 1);
-    } catch (err) {
-      const msg = err.message.includes('fetch')
-        ? 'AI is temporarily unavailable. Please try again in a moment.'
-        : err.message;
-      updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: `⚠ ${msg}` }] }));
+    } catch {
+      updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: '⚠ AI is temporarily unavailable. Please try again in a moment.' }] }));
     } finally {
       setIsTyping(false);
     }
@@ -431,11 +428,14 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
                 <textarea
                   ref={textareaRef}
                   value={input}
-                  onChange={e => setInput(e.target.value)}
+                  onChange={e => {
+                    setInput(e.target.value);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+                  }}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask about biomechanics, muscle physiology, training..."
                   className="flex-1 input-style resize-none"
-                  style={{ minHeight: '52px', maxHeight: '160px', paddingTop: '14px', paddingBottom: '14px' }}
+                  style={{ minHeight: '52px', maxHeight: '160px', paddingTop: '14px', paddingBottom: '14px', overflow: 'hidden' }}
                   rows={1}
                   disabled={isTyping}
                 />

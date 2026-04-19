@@ -299,17 +299,19 @@ export default function Account({ navigate, user, setUser, isPremium }) {
                 </div>
               </div>
               {ios ? (
-                <span className="text-xs text-right flex-shrink-0" style={{ color: '#A1A1AA', maxWidth: '110px' }}>
+                <span className="text-xs text-right flex-shrink-0" style={{ color: '#A1A1AA', maxWidth: '120px' }}>
                   Safari → Share → Add to Home Screen
                 </span>
-              ) : (
+              ) : canInstall ? (
                 <button
                   className="btn-primary text-sm px-4 py-2 flex-shrink-0"
-                  onClick={handleInstall}
-                  disabled={!canInstall}
-                  style={{ opacity: canInstall ? 1 : 0.5 }}>
+                  onClick={handleInstall}>
                   <Download className="h-4 w-4" /> Install
                 </button>
+              ) : (
+                <span className="text-xs text-right flex-shrink-0" style={{ color: '#A1A1AA', maxWidth: '130px' }}>
+                  Chrome menu (⋮) → Add to Home Screen
+                </span>
               )}
             </div>
           </div>
