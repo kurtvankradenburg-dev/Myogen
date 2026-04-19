@@ -180,8 +180,8 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       setBackendStatus('ok');
       // Increment local display count (server has already tracked the real count)
       if (!isPremium) setChatCount(prev => prev + 1);
-    } catch {
-      updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: '⚠ AI is temporarily unavailable. Please try again in a moment.' }] }));
+    } catch (err) {
+      updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: `⚠ AI error: ${err.message}` }] }));
     } finally {
       setIsTyping(false);
     }

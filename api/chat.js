@@ -89,21 +89,27 @@ export default async function handler(req, res) {
       raw = completion.choices[0].message.content || ''
     } else {
       // Pollinations.ai — free, no API key required, always online
-      const pollinationsRes = await fetch('https://text.pollinations.ai/', {
+      const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'openai',
-          private: true,
           messages: [
             { role: 'system', content: systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
           ],
+          max_tokens: Math.min(maxTokens, 800),
+          temperature: 0.35,
+          private: true,
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(25000),
       })
-      if (!pollinationsRes.ok) throw new Error('AI service unavailable')
-      raw = await pollinationsRes.text()
+      if (!pollinationsRes.ok) {
+        const errText = await pollinationsRes.text().catch(() => '')
+        throw new Error(`Pollinations error ${pollinationsRes.status}: ${errText.slice(0, 120)}`)
+      }
+      const pollinationsData = await pollinationsRes.json()
+      raw = pollinationsData.choices?.[0]?.message?.content || ''
     }
 
     const clean = raw.replace(/#\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim()
