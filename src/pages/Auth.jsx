@@ -190,7 +190,7 @@ export default function Auth({ navigate, setUser, googleAuthError, clearGoogleAu
           </button>
 
           <p className="text-xs mt-6" style={{ color: 'rgba(161,161,170,0.6)' }}>
-            Didn't receive it? Check your spam folder.
+            Didn't receive it? Check your <strong style={{ color: '#A1A1AA' }}>spam or junk folder</strong> — verification emails sometimes end up there.
           </p>
         </div>
       </div>
