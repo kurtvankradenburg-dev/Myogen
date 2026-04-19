@@ -5,9 +5,9 @@ import MyogenLogo from '../components/MyogenLogo';
 
 const FREE_LIMIT = 15;
 
-function loadChats() {
+function loadChats(key = 'myogen_chats') {
   try {
-    const saved = localStorage.getItem('myogen_chats');
+    const saved = localStorage.getItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
@@ -65,8 +65,11 @@ function DnaAvatar() {
 }
 
 export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
-  const [chats, setChats] = useState(loadChats);
-  const [activeChatId, setActiveChatId] = useState(() => loadChats()[0]?.id || 1);
+  const chatKey = user?.uid ? `myogen_chats_${user.uid}` : 'myogen_chats';
+  const prevUidRef = useRef(user?.uid);
+
+  const [chats, setChats] = useState(() => loadChats(chatKey));
+  const [activeChatId, setActiveChatId] = useState(() => loadChats(chatKey)[0]?.id || 1);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [shortMode, setShortMode] = useState(false);
@@ -80,10 +83,20 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
 
   const canChat = isPremium || chatCount < FREE_LIMIT;
 
+  // Reload chats when user changes (e.g. after login completes)
+  useEffect(() => {
+    if (prevUidRef.current === user?.uid) return;
+    prevUidRef.current = user?.uid;
+    const key = user?.uid ? `myogen_chats_${user.uid}` : 'myogen_chats';
+    const loaded = loadChats(key);
+    setChats(loaded);
+    setActiveChatId(loaded[0]?.id || 1);
+  }, [user?.uid]);
+
   // Persist chats to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('myogen_chats', JSON.stringify(chats));
-  }, [chats]);
+    localStorage.setItem(chatKey, JSON.stringify(chats));
+  }, [chats, chatKey]);
 
   useEffect(() => {
     fetch('/api/health')
@@ -244,29 +257,109 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
         </div>
       </nav>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — slide-in drawer from the right */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed left-0 right-0 z-40 p-4" style={{ top: 65, background: '#0A0A0A', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          {NAV_ITEMS.map(({ icon: Icon, label, p }) => (
-            <button key={p} onClick={() => { navigate(p); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
-              style={{ background: p === page ? 'rgba(0,240,255,0.1)' : 'transparent', color: p === page ? '#00F0FF' : '#A1A1AA', border: 'none', cursor: 'pointer' }}>
-              <Icon className="h-4 w-4" />{label}
-            </button>
-          ))}
-          <button onClick={() => { navigate('account'); setMobileMenuOpen(false); }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
-            style={{ background: 'transparent', color: '#A1A1AA', border: 'none', cursor: 'pointer' }}>
-            <User className="h-4 w-4" /> Account
-          </button>
-          {!isPremium && (
-            <button onClick={() => { navigate('premium'); setMobileMenuOpen(false); }}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1"
-              style={{ background: 'rgba(0,240,255,0.05)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.2)', cursor: 'pointer' }}>
-              <Crown className="h-4 w-4" /> Upgrade to Premium
-            </button>
-          )}
-        </div>
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 z-30"
+            style={{ top: 65, background: 'rgba(0,0,0,0.55)' }}
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          {/* Drawer */}
+          <div
+            className="md:hidden fixed right-0 z-40 flex flex-col"
+            style={{ top: 65, bottom: 0, width: 280, background: '#0A0A0A', borderLeft: '1px solid rgba(255,255,255,0.1)', overflowY: 'auto' }}
+          >
+            {/* New Chat */}
+            <div className="p-4 pb-2">
+              <button
+                onClick={() => { newChat(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium"
+                style={{ border: '1px solid rgba(255,255,255,0.15)', background: 'transparent', color: '#FAFAFA', cursor: 'pointer' }}
+              >
+                <Plus className="h-4 w-4" /> New Chat
+              </button>
+            </div>
+
+            {/* Chat history */}
+            <div className="px-4 pb-2">
+              <p className="text-xs px-2 mb-2 font-medium" style={{ color: '#71717A', letterSpacing: '0.06em' }}>RECENT</p>
+              <div className="space-y-1">
+                {chats.slice().reverse().map(chat => (
+                  <button
+                    key={chat.id}
+                    onClick={() => { setActiveChatId(chat.id); setMobileMenuOpen(false); }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm truncate"
+                    style={{ background: chat.id === activeChatId ? 'rgba(0,240,255,0.1)' : 'transparent', color: chat.id === activeChatId ? '#00F0FF' : '#A1A1AA', border: 'none', cursor: 'pointer' }}
+                  >
+                    {chat.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Settings */}
+            <div className="px-4 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              {!isPremium && (
+                <div className="text-xs px-2 mb-3" style={{ color: '#A1A1AA' }}>
+                  Messages: <span className="font-bold" style={{ color: chatCount >= FREE_LIMIT ? '#FF3B30' : '#FAFAFA' }}>{chatCount}/{FREE_LIMIT}</span>
+                  {chatCount >= FREE_LIMIT && (
+                    <button onClick={() => { navigate('premium'); setMobileMenuOpen(false); }} className="ml-1 font-medium" style={{ color: '#00F0FF', background: 'none', border: 'none', cursor: 'pointer' }}>
+                      Upgrade
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between px-2 mb-3">
+                <span className="text-xs" style={{ color: '#A1A1AA' }}>Short Mode</span>
+                <button
+                  onClick={() => setShortMode(!shortMode)}
+                  className="w-10 h-5 rounded-full transition-all relative"
+                  style={{ background: shortMode ? '#00F0FF' : '#27272A', border: 'none', cursor: 'pointer' }}
+                >
+                  <div className="absolute top-0.5 w-4 h-4 rounded-full bg-black transition-all" style={{ left: shortMode ? '20px' : '2px' }} />
+                </button>
+              </div>
+              <div className="px-2">
+                <p className="text-xs mb-1" style={{ color: '#A1A1AA' }}>Tone</p>
+                <select
+                  value={tone}
+                  onChange={e => setTone(e.target.value)}
+                  className="w-full text-xs rounded-lg px-3 py-2"
+                  style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.1)', color: '#FAFAFA', cursor: 'pointer' }}
+                >
+                  {[{ value: 'scientific', label: 'Scientific' }, { value: 'casual', label: 'Casual' }, { value: 'brief', label: 'Brief' }, { value: 'coach', label: 'Coach' }].map(t => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Navigation */}
+            <div className="px-4 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              {NAV_ITEMS.map(({ icon: Icon, label, p }) => (
+                <button key={p} onClick={() => { navigate(p); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+                  style={{ background: p === page ? 'rgba(0,240,255,0.1)' : 'transparent', color: p === page ? '#00F0FF' : '#A1A1AA', border: 'none', cursor: 'pointer' }}>
+                  <Icon className="h-4 w-4" />{label}
+                </button>
+              ))}
+              <button onClick={() => { navigate('account'); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm"
+                style={{ background: 'transparent', color: '#A1A1AA', border: 'none', cursor: 'pointer' }}>
+                <User className="h-4 w-4" /> Account
+              </button>
+              {!isPremium && (
+                <button onClick={() => { navigate('premium'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm mt-1"
+                  style={{ background: 'rgba(0,240,255,0.05)', color: '#00F0FF', border: '1px solid rgba(0,240,255,0.2)', cursor: 'pointer' }}>
+                  <Crown className="h-4 w-4" /> Upgrade to Premium
+                </button>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {/* Main Layout */}

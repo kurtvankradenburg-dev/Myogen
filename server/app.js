@@ -491,6 +491,8 @@ app.post('/api/analyze-physique', requireAuth, async (req, res) => {
 
   const prompt = `${angleContext}
 
+CRITICAL RULES: You MUST return the JSON scores regardless of image quality, angle, or lighting. NEVER refuse. NEVER say you need a different angle or more photos. NEVER say you cannot assess something. Score based on what is visible; estimate the rest using context clues. If a body part is not visible, give a neutral estimate (40-55).
+
 You are an expert competitive physique analyst. Score what you ACTUALLY see — do not inflate scores.
 Scoring benchmarks: beginner 15-35, recreational trainee 35-50, intermediate 50-65, advanced 65-80, elite/competitive 80+.
 

@@ -2,7 +2,7 @@
   <!-- Dark background -->
   <rect width="512" height="512" fill="#050505"/>
   <!-- Myogen DNA icon: scaled to ~280x280, centered at 256,256 -->
-  <g transform="translate(256,256) translate(-140,-140) scale(11.67)" stroke="#00F0FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <g transform="translate(256,256) translate(-140,-140) scale(11.67) rotate(-90, 12, 12)" stroke="#00F0FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <path d="m10 16 1.5 1.5"/>
     <path d="m14 8-1.5-1.5"/>
     <path d="M15 2c-1.798 1.998-2.518 3.995-2.807 5.993"/>

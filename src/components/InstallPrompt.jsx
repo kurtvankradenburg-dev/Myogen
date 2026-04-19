@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Download, X, Share } from 'lucide-react';
 
-// Use sessionStorage — shows each browser session, not permanently dismissed
-const DISMISSED_KEY = 'myogen_install_dismissed_session';
+// Use localStorage — once dismissed, stays dismissed permanently
+const DISMISSED_KEY = 'myogen_install_dismissed';
 
 function isIOS() {
   return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
@@ -22,7 +22,7 @@ export default function InstallPrompt() {
 
   useEffect(() => {
     if (isInStandaloneMode()) return;
-    if (sessionStorage.getItem(DISMISSED_KEY)) return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
 
     if (isIOS()) {
       setIosMode(true);
@@ -41,7 +41,7 @@ export default function InstallPrompt() {
   }, []);
 
   function dismiss() {
-    sessionStorage.setItem(DISMISSED_KEY, '1');
+    localStorage.setItem(DISMISSED_KEY, '1');
     setVisible(false);
   }
 

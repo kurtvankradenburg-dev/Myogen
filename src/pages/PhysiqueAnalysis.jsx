@@ -448,7 +448,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
                 disabled={!hasImages || !consent || loading || !canAnalyze}
               >
                 {loading ? (
-                  <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /> Analyzing with AI...</>
+                  <><div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" /> Analyzing...</>
                 ) : (
                   <><Scan className="h-5 w-5" /> Analyze Physique</>
                 )}
