@@ -54,14 +54,12 @@ function MessageContent({ content }) {
   );
 }
 
-// Diagonal Myogen logo for AI avatar
+// AI avatar — matches the nav bar logo
 function DnaAvatar() {
   return (
     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
       style={{ background: '#18181B', border: '1px solid rgba(0,240,255,0.2)' }}>
-      <div style={{ transform: 'rotate(45deg)' }}>
-        <MyogenLogo size={16} color="#00F0FF" />
-      </div>
+      <Dna className="h-4 w-4" strokeWidth={1.5} style={{ color: '#00F0FF' }} />
     </div>
   );
 }
@@ -184,7 +182,7 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       if (!isPremium) setChatCount(prev => prev + 1);
     } catch (err) {
       const msg = err.message.includes('fetch')
-        ? 'Cannot reach the Myogen backend. Make sure the server is running (npm run dev).'
+        ? 'AI is temporarily unavailable. Please try again in a moment.'
         : err.message;
       updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: `⚠ ${msg}` }] }));
     } finally {
@@ -198,8 +196,8 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
 
   const statusColor = backendStatus === 'ok' ? '#22c55e' : backendStatus === 'offline' ? '#FF3B30' : '#eab308';
   const statusText = backendStatus === 'ok' ? '● AI Online'
-    : backendStatus === 'no-key' ? '● Start Ollama: ollama serve'
-    : '● Backend offline — run: npm run dev';
+    : backendStatus === 'no-key' ? '● AI Offline'
+    : '● AI temporarily unavailable';
 
   const NAV_ITEMS = [
     { icon: LayoutDashboard, label: 'Dashboard', p: 'dashboard' },

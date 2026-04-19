@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dna, Scan, Brain, Zap, Crown, LogOut, Key, ChevronRight, LayoutDashboard, Mail, Shield, Activity, User, Settings } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Dna, Scan, Brain, Zap, Crown, LogOut, Key, ChevronRight, LayoutDashboard, Mail, Shield, Activity, User, Settings, Download, Share2 } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut, reauthenticateWithCredential, EmailAuthProvider, updatePassword } from 'firebase/auth';
 
@@ -10,8 +10,40 @@ const NAV_ITEMS = [
   { icon: Brain, label: 'Knowledge', p: 'knowledge' },
 ];
 
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase()) && !window.MSStream;
+}
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
 export default function Account({ navigate, user, setUser, isPremium }) {
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  const ios = isIOS();
+  const standalone = isStandalone();
+
+  useEffect(() => {
+    // Check if install prompt is already stored from when the page loaded
+    setCanInstall(!!window.__myogenInstallPrompt);
+    // Also listen in case it fires while on this page
+    const handler = (e) => {
+      e.preventDefault();
+      window.__myogenInstallPrompt = e;
+      setCanInstall(true);
+    };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  async function handleInstall() {
+    const prompt = window.__myogenInstallPrompt;
+    if (!prompt) return;
+    prompt.prompt();
+    await prompt.userChoice;
+    window.__myogenInstallPrompt = null;
+    setCanInstall(false);
+  }
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,7 +99,7 @@ export default function Account({ navigate, user, setUser, isPremium }) {
       <nav className="glass fixed top-0 left-0 right-0 z-50 px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('dashboard')}>
-            <Dna className="h-8 w-8" strokeWidth={1.5} style={{ color: '#00F0FF', transform: 'rotate(45deg)' }} />
+            <Dna className="h-8 w-8" strokeWidth={1.5} style={{ color: '#00F0FF' }} />
             <span className="font-bold text-xl tracking-tight" style={{ fontFamily: 'Manrope, sans-serif' }}>MYOGEN</span>
           </div>
           <div className="hidden md:flex items-center gap-6">
@@ -249,6 +281,39 @@ export default function Account({ navigate, user, setUser, isPremium }) {
             </div>
           </div>
         </div>
+
+        {/* Install App */}
+        {!standalone && (
+          <div className="card-glow p-6 mb-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                  style={{ background: 'rgba(0,240,255,0.08)' }}>
+                  {ios ? <Share2 className="h-5 w-5" style={{ color: '#00F0FF' }} /> : <Download className="h-5 w-5" style={{ color: '#00F0FF' }} />}
+                </div>
+                <div>
+                  <p className="font-semibold">Install App</p>
+                  <p className="text-sm" style={{ color: '#A1A1AA' }}>
+                    {ios ? 'Add to your home screen' : 'Get the full app experience'}
+                  </p>
+                </div>
+              </div>
+              {ios ? (
+                <span className="text-xs text-right flex-shrink-0" style={{ color: '#A1A1AA', maxWidth: '110px' }}>
+                  Safari → Share → Add to Home Screen
+                </span>
+              ) : (
+                <button
+                  className="btn-primary text-sm px-4 py-2 flex-shrink-0"
+                  onClick={handleInstall}
+                  disabled={!canInstall}
+                  style={{ opacity: canInstall ? 1 : 0.5 }}>
+                  <Download className="h-4 w-4" /> Install
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Sign Out */}
         <button onClick={handleSignOut}

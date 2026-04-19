@@ -34,6 +34,7 @@ export default function InstallPrompt() {
     // Chrome / Edge / Android — capture the native prompt before it fires
     const onPrompt = (e) => {
       e.preventDefault();
+      window.__myogenInstallPrompt = e; // share with Account page
       setDeferredPrompt(e);
       setVisible(true);
     };
@@ -50,6 +51,7 @@ export default function InstallPrompt() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     await deferredPrompt.userChoice;
+    window.__myogenInstallPrompt = null;
     setDeferredPrompt(null);
     setVisible(false);
   }
