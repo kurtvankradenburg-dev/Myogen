@@ -1,13 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
-
 function isSupabaseConfigured() {
   return !!process.env.VITE_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY
 }
+
+const supabase = isSupabaseConfigured()
+  ? createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null
 
 export async function requireAuth(req, res) {
   if (!isSupabaseConfigured()) {

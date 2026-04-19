@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-)
+const supabase = process.env.VITE_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+  : null
 
 export const PERMANENT_PREMIUM_EMAIL = 'kurtvankradenburg@gmail.com'
 export const FREE_CHAT_LIMIT = 15
@@ -15,6 +14,8 @@ export function getMonthKey() {
 }
 
 export async function getUser(uid) {
+  if (!supabase) return { isPremium: false, chatUsage: {}, analysisUsage: {} }
+
   const { data } = await supabase
     .from('users')
     .select('*')
@@ -34,6 +35,8 @@ export async function getUser(uid) {
 }
 
 export async function setUser(uid, patch) {
+  if (!supabase) return
+
   const dbPatch = {}
   if (patch.isPremium !== undefined)            dbPatch.is_premium = patch.isPremium
   if (patch.email !== undefined)                dbPatch.email = patch.email
