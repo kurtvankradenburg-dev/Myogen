@@ -276,21 +276,14 @@ function getProvider() {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic';
   if (process.env.OPENAI_API_KEY)    return 'openai';
   if (process.env.GROQ_API_KEY)      return 'groq';
-  return 'ollama';
+  return 'pollinations'; // free, no API key required
 }
 
 // ── Health check ──────────────────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
   const provider = getProvider();
-  let ollamaOk = false;
-  if (provider === 'ollama') {
-    try {
-      const r = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(1500) });
-      ollamaOk = r.ok;
-    } catch {}
-  }
-  // available = has a real cloud API key, OR ollama is actually running
-  const available = provider !== 'ollama' || ollamaOk;
+  // pollinations is always available (no key needed); ollama requires local server
+  const available = provider !== 'ollama';
   res.json({
     ok: true,
     provider,
@@ -423,27 +416,22 @@ app.post('/api/chat', chatLimiter, requireAuth, async (req, res) => {
       });
       raw = completion.choices[0].message.content || '';
     } else {
-      const ollamaModel = process.env.OLLAMA_MODEL || 'llama3';
-      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434';
-      const response = await fetch(`${ollamaUrl}/api/chat`, {
+      // Pollinations.ai — free, no API key required, always online
+      const pollinationsRes = await fetch('https://text.pollinations.ai/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: ollamaModel,
-          stream: false,
-          options: { temperature: 0.35, num_predict: maxTokens },
+          model: 'openai',
+          private: true,
           messages: [
             { role: 'system', content: systemPrompt },
             ...messages.map(m => ({ role: m.role, content: m.content })),
           ],
         }),
+        signal: AbortSignal.timeout(30000),
       });
-      if (!response.ok) {
-        const err = await response.text();
-        throw new Error(`Ollama error: ${err}`);
-      }
-      const data = await response.json();
-      raw = data.message?.content || '';
+      if (!pollinationsRes.ok) throw new Error('AI service unavailable');
+      raw = await pollinationsRes.text();
     }
 
     const clean = raw.replace(/#\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim();
@@ -554,9 +542,27 @@ Return ONLY valid JSON with these exact keys (no markdown, no explanation outsid
       const match = raw.match(/\{[\s\S]*\}/);
       if (match) scores = JSON.parse(match[0]);
     } else {
-      return res.status(500).json({
-        error: 'No vision AI configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to your Vercel environment variables.',
+      // Pollinations.ai — free, no API key required
+      const pollinationsRes = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          private: true,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              ...images.map(img => ({ type: 'image_url', image_url: { url: img, detail: 'high' } })),
+            ],
+          }],
+        }),
+        signal: AbortSignal.timeout(60000),
       });
+      if (!pollinationsRes.ok) throw new Error('AI service unavailable');
+      const raw = await pollinationsRes.text();
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) scores = JSON.parse(match[0]);
     }
 
     if (!scores) {
