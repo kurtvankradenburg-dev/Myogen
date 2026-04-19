@@ -163,7 +163,8 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       try {
         data = await res.json();
       } catch {
-        throw new Error('Server returned an unexpected response. Make sure the backend is running (npm run dev).');
+        const raw = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${raw.slice(0, 120) || 'empty response'}`);
       }
       if (res.status === 403) {
         // Server says limit reached — update local state to reflect real count
