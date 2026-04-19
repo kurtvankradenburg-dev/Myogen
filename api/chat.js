@@ -7,7 +7,7 @@ function getProvider() {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
   if (process.env.OPENAI_API_KEY) return 'openai'
   if (process.env.GROQ_API_KEY) return 'groq'
-  return null
+  return 'pollinations'
 }
 
 export default async function handler(req, res) {
@@ -47,9 +47,6 @@ export default async function handler(req, res) {
   }
 
   const provider = getProvider()
-  if (!provider) {
-    return res.status(500).json({ error: 'No AI provider configured. Add GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY to environment variables.' })
-  }
 
   try {
     let raw = ''
@@ -90,6 +87,23 @@ export default async function handler(req, res) {
         temperature: 0.35,
       })
       raw = completion.choices[0].message.content || ''
+    } else {
+      // Pollinations.ai — free, no API key required, always online
+      const pollinationsRes = await fetch('https://text.pollinations.ai/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'openai',
+          private: true,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages.map(m => ({ role: m.role, content: m.content })),
+          ],
+        }),
+        signal: AbortSignal.timeout(30000),
+      })
+      if (!pollinationsRes.ok) throw new Error('AI service unavailable')
+      raw = await pollinationsRes.text()
     }
 
     const clean = raw.replace(/#\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim()
