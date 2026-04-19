@@ -77,7 +77,7 @@ export default function App() {
         } catch {}
       }
       setAuthChecked(true);
-      setTimeout(() => setShowSplash(false), 2000);
+      setTimeout(() => setShowSplash(false), 1500);
       return;
     }
 
@@ -128,7 +128,7 @@ export default function App() {
       setAuthChecked(true);
     });
 
-    setTimeout(() => setShowSplash(false), 2000);
+    setTimeout(() => setShowSplash(false), 1500);
     return () => unsubscribe();
   }, []);
 

@@ -22,7 +22,7 @@ if (existsSync(envPath)) {
 
 const app = express();
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '4mb' }));
+app.use(express.json({ limit: '8mb' }));
 
 // ── Rate limiters ─────────────────────────────────────────────────────────
 const chatLimiter = rateLimit({
@@ -359,6 +359,114 @@ app.post('/api/chat', chatLimiter, requireAuth, async (req, res) => {
     }
 
     res.json({ content: clean });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Physique Analysis (Vision AI) ────────────────────────────────────────
+app.post('/api/analyze-physique', requireAuth, async (req, res) => {
+  const { images, angle } = req.body;
+  if (!images || !Array.isArray(images) || images.length === 0) {
+    return res.status(400).json({ error: 'At least one image is required.' });
+  }
+
+  const monthKey = getMonthKey();
+  let userData = null;
+  let isPremium = false;
+
+  if (!req.isDemo) {
+    userData = await getUser(req.uid);
+    isPremium = userData.isPremium || req.email?.toLowerCase() === PERMANENT_PREMIUM_EMAIL;
+
+    if (!isPremium) {
+      const count = userData.analysisUsage?.[monthKey] || 0;
+      if (count >= FREE_ANALYSIS_LIMIT) {
+        return res.status(403).json({ error: 'Monthly analysis limit reached. Upgrade to Premium for unlimited analyses.' });
+      }
+      await setUser(req.uid, {
+        analysisUsage: { ...(userData.analysisUsage || {}), [monthKey]: count + 1 },
+      });
+    }
+  }
+
+  const angleContext = angle === 'all'
+    ? 'The user has provided 3 physique photos in order: front view, back view, and side view.'
+    : `The user has provided a ${angle || 'front'} view physique photo.`;
+
+  const feedbackField = isPremium
+    ? ',\n  "feedback": "<2-3 paragraph expert analysis: specific strengths, weak points, and actionable training recommendations based on what you actually observe>"'
+    : '';
+
+  const prompt = `${angleContext}
+
+You are an expert competitive physique analyst. Score what you ACTUALLY see — do not inflate scores.
+Scoring benchmarks: beginner 15-35, recreational trainee 35-50, intermediate 50-65, advanced 65-80, elite/competitive 80+.
+
+Return ONLY valid JSON with these exact keys (no markdown, no explanation outside the JSON):
+{
+  "aesthetic": <0-100, overall visual appeal and muscularity>,
+  "mass": <0-100, overall muscle mass>,
+  "symmetry": <0-100, left/right balance>,
+  "proportions": <0-100, muscle group proportions>,
+  "conditioning": <0-100, definition and body fat level>,
+  "bodyFatEst": <estimated body fat as a plain number 7-40>,
+  "vascularity": <0-100, visible veins>,
+  "shoulders": <0-100>,
+  "chest": <0-100>,
+  "back": <0-100>,
+  "arms": <0-100>,
+  "core": <0-100>,
+  "legs": <0-100>${feedbackField}
+}`;
+
+  try {
+    let scores = null;
+
+    if (process.env.OPENAI_API_KEY) {
+      const { default: OpenAI } = await import('openai');
+      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await client.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: isPremium ? 1200 : 450,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            ...images.map(img => ({ type: 'image_url', image_url: { url: img, detail: 'high' } })),
+          ],
+        }],
+      });
+      const raw = completion.choices[0].message.content || '';
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) scores = JSON.parse(match[0]);
+    } else if (process.env.ANTHROPIC_API_KEY) {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const imgContents = images.map(img => {
+        const m = img.match(/^data:([^;]+);base64,(.+)$/);
+        if (!m) return null;
+        return { type: 'image', source: { type: 'base64', media_type: m[1], data: m[2] } };
+      }).filter(Boolean);
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: isPremium ? 1200 : 450,
+        messages: [{ role: 'user', content: [...imgContents, { type: 'text', text: prompt }] }],
+      });
+      const raw = response.content[0]?.text || '';
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) scores = JSON.parse(match[0]);
+    } else {
+      return res.status(500).json({
+        error: 'No vision AI configured. Add OPENAI_API_KEY or ANTHROPIC_API_KEY to your Vercel environment variables.',
+      });
+    }
+
+    if (!scores) {
+      return res.status(500).json({ error: 'Could not parse AI analysis. Please try again.' });
+    }
+
+    res.json({ ok: true, scores, isPremium });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Dna, Scan, Brain, Zap, Crown, Send, Plus, LayoutDashboard, User } from 'lucide-react';
 import { getAuthToken } from '../authToken';
+import MyogenLogo from '../components/MyogenLogo';
 
 const FREE_LIMIT = 15;
 
@@ -23,7 +24,9 @@ FORMATTING: Always write in clear paragraphs separated by blank lines. Never use
 
 LONG ANSWER MODE (default): Comprehensive explanation with all relevant mechanisms, physiology, and biomechanics. Minimum 2 paragraphs.
 
-SHORT ANSWER MODE: Give ONE direct, precise answer followed by ONE primary mechanistic reason. Maximum 3 sentences in a single paragraph.`;
+SHORT ANSWER MODE: Give ONE direct, precise answer followed by ONE primary mechanistic reason. Maximum 3 sentences in a single paragraph.
+
+TIME UNDER TENSION (TUT): You have deep expertise in TUT as a training variable. Key knowledge: TUT refers to the total duration a muscle remains under load during a set. Optimal hypertrophy TUT is typically 30-70 seconds per set. The eccentric phase (muscle lengthening) at 3-5 seconds produces the greatest mechanical tension and muscle damage — it is biomechanically the most potent phase for hypertrophy. The concentric phase at 1-2 seconds preserves motor unit recruitment rate. Longer TUT increases metabolic stress (lactate accumulation, cell swelling) and growth factor release. The three primary hypertrophy mechanisms — mechanical tension, metabolic stress, and muscle damage — are all modulated by TUT manipulation. Rep tempo notation (eccentric:iso-hold:concentric:top-hold) such as 4-1-2-0 specifies exact per-rep TUT. Brief explosive contractions (low TUT) optimize strength and power adaptations; slower controlled TUT optimizes structural and metabolic hypertrophy adaptations. Controlled eccentrics simultaneously maximize muscle damage and maintain motor unit recruitment throughout the range of motion.`;
 
 const SUGGESTED_QUESTIONS = [
   "What's the best exercise for upper pec considering leverage?",
@@ -51,12 +54,14 @@ function MessageContent({ content }) {
   );
 }
 
-// Diagonal DNA icon for AI avatar
+// Diagonal Myogen logo for AI avatar
 function DnaAvatar() {
   return (
     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-      style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.1)' }}>
-      <Dna className="h-4 w-4" strokeWidth={1.5} style={{ color: '#00F0FF', transform: 'rotate(45deg)' }} />
+      style={{ background: '#18181B', border: '1px solid rgba(0,240,255,0.2)' }}>
+      <div style={{ transform: 'rotate(45deg)' }}>
+        <MyogenLogo size={16} color="#00F0FF" />
+      </div>
     </div>
   );
 }
@@ -156,7 +161,12 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
           maxTokens: shortMode ? 280 : 1400,
         }),
       });
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error('Server returned an unexpected response. Make sure the backend is running (npm run dev).');
+      }
       if (res.status === 403) {
         // Server says limit reached — update local state to reflect real count
         setChatCount(FREE_LIMIT);
