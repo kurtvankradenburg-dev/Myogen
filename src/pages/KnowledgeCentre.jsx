@@ -126,7 +126,7 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       coach: 'Be direct and motivating like an elite strength coach. Practical and action-oriented.',
     };
     const shortModeInstruction = shortMode
-      ? '\n\nSHORT ANSWER MODE ACTIVE: Core answer + one reason only. NO lists. Maximum 3 sentences in one paragraph.'
+      ? '\n\nSHORT ANSWER MODE ACTIVE: Write exactly 2-3 complete sentences. Give the direct answer first, then one key mechanistic reason. The response must be fully self-contained and end with a complete sentence — never trail off or get cut short. No lists, no headers.'
       : '\n\nLONG ANSWER MODE ACTIVE: Give a thorough, comprehensive answer in multiple paragraphs.';
     return SYSTEM_PROMPT + `\n\nCurrent tone: ${tone}. ${toneInstructions[tone]}${shortModeInstruction}`;
   }
@@ -156,7 +156,7 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
         body: JSON.stringify({
           messages: msgHistory.map(m => ({ role: m.role, content: m.content })),
           systemPrompt: buildSystemPrompt(),
-          maxTokens: shortMode ? 280 : 1400,
+          maxTokens: shortMode ? 420 : 1400,
         }),
       });
       let data;
