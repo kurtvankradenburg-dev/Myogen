@@ -3,6 +3,7 @@ import './styles/global.css';
 import { auth, isFirebaseConfigured } from './firebase';
 import { onAuthStateChanged, getRedirectResult, signOut } from 'firebase/auth';
 import { getAuthToken } from './authToken';
+import { Analytics } from '@vercel/analytics/react';
 
 import Splash from './components/Splash';
 import EmailVerified from './pages/EmailVerified';
@@ -271,6 +272,7 @@ export default function App() {
         onPrivacyClick={() => navigate('privacy')}
       />
       <InstallPrompt />
+      <Analytics />
     </>
   );
 }
