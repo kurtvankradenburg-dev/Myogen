@@ -311,6 +311,14 @@ export default async function handler(req, res) {
 
   const provider = getProvider()
 
+  // Groq free tier has a ~12k TPM hard limit per request.
+  // System prompt alone is ~5.5k tokens, so cap conversation history.
+  // Keep the last 6 messages (3 exchanges) for Groq to stay safely under the limit.
+  const MAX_GROQ_MESSAGES = 6
+  const trimmedMessages = provider === 'groq' && messages.length > MAX_GROQ_MESSAGES
+    ? messages.slice(-MAX_GROQ_MESSAGES)
+    : messages
+
   try {
     let raw = ''
 
@@ -321,7 +329,7 @@ export default async function handler(req, res) {
         model: 'claude-haiku-4-5',
         max_tokens: maxTokens,
         system: systemPrompt,
-        messages: messages.map(m => ({ role: m.role, content: m.content })),
+        messages: trimmedMessages.map(m => ({ role: m.role, content: m.content })),
       })
       raw = response.content[0]?.text || ''
     } else if (provider === 'openai') {
@@ -333,7 +341,7 @@ export default async function handler(req, res) {
         temperature: 0.35,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({ role: m.role, content: m.content })),
+          ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
         ],
       })
       raw = completion.choices[0].message.content || ''
@@ -344,7 +352,7 @@ export default async function handler(req, res) {
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...messages.map(m => ({ role: m.role, content: m.content })),
+          ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
         ],
         max_tokens: maxTokens,
         temperature: 0.35,
@@ -359,7 +367,7 @@ export default async function handler(req, res) {
           model: 'openai',
           messages: [
             { role: 'system', content: systemPrompt },
-            ...messages.map(m => ({ role: m.role, content: m.content })),
+            ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
           ],
           max_tokens: Math.min(maxTokens, 800),
           temperature: 0.35,
