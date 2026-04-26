@@ -19,5 +19,6 @@ export default async function handler(req, res) {
     analysisCount: userData.analysisUsage?.[monthKey] || 0,
     chatLimit: FREE_CHAT_LIMIT,
     analysisLimit: FREE_ANALYSIS_LIMIT,
+    hasPaypalSubscription: !!userData.paypalSubscriptionId,
   })
 }
