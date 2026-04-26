@@ -6,19 +6,22 @@ const PAYPAL_CLIENT_ID = 'AblZ4yl5au3t1cJDheYA0Dyl55sHj1sIaXJZfQu0XM8X3twE3wb2B-
 const PAYPAL_PLAN_ID = 'P-2JK35030PU796203TNHEA72Y';
 
 const FREE_FEATURES = [
-  { text: '1 physique analysis per month', icon: Scan, included: true },
-  { text: '15 AI messages per month', icon: Brain, included: true },
-  { text: 'No quiz access (Premium only)', icon: Zap, included: false },
-  { text: 'Summary analysis only', icon: Check, included: true },
+  { text: '1 physique analysis/month — Overall score only', icon: Scan, included: true },
+  { text: '15 AI Knowledge Engine messages/month', icon: Brain, included: true },
+  { text: 'Quizzes — Premium only', icon: Zap, included: false },
+  { text: 'Full analysis breakdown — Premium only', icon: Check, included: false },
 ];
 
 const PREMIUM_FEATURES = [
-  'Unlimited physique analyses',
-  'Unlimited quizzes',
-  'Full detailed analysis breakdowns',
-  'Biomechanical insights',
-  'Personalized recommendations',
-  'Priority support',
+  'Unlimited physique analyses every month',
+  'Full physique scores: Mass, Aesthetic, Overall',
+  'Individual muscle group scores (6 groups)',
+  'Body fat % estimate + Vascularity rating',
+  'Key Strengths & Key Weaknesses breakdown',
+  'Expert AI written feedback per analysis',
+  'Follow-up Q&A — ask about your physique',
+  'Unlimited AI Knowledge Engine messages',
+  'Access to all science quizzes',
 ];
 
 export default function Premium({ navigate, isPremium, setIsPremium, user, page }) {

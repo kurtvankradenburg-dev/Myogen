@@ -469,58 +469,86 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
 
               {results ? (
                 <div>
-                  {/* Main Scores */}
-                  <div className="flex justify-center gap-12 mb-8 pb-8" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <RatingCircle score={results.aesthetic} label="Aesthetic" size="large" />
-                    <RatingCircle score={results.mass} label="Mass" size="large" />
-                  </div>
-
-                  {/* Muscle Groups */}
-                  <div className="grid grid-cols-3 gap-6 mb-8">
-                    {[
-                      { key: 'shoulders', label: 'Shoulders' }, { key: 'chest', label: 'Chest' }, { key: 'back', label: 'Back' },
-                      { key: 'arms', label: 'Arms' }, { key: 'core', label: 'Core' }, { key: 'legs', label: 'Legs' },
-                    ].map(({ key, label }) => (
-                      <RatingCircle key={key} score={results[key] || 0} label={label} />
-                    ))}
-                  </div>
-
-                  {/* Premium-only stats */}
-                  {isPremium && (
-                    <div className="grid grid-cols-2 gap-4 mb-6">
-                      {[
-                        { label: 'Est. Body Fat', value: `${results.bodyFatEst}%` },
-                        { label: 'Vascularity', value: `${results.vascularity}/100` },
-                        { label: 'Symmetry', value: `${results.symmetry}/100` },
-                        { label: 'Conditioning', value: `${results.conditioning}/100` },
-                      ].map(({ label, value }) => (
-                        <div key={label} className="p-3 rounded-xl text-center" style={{ background: '#18181B' }}>
-                          <p className="text-xs mb-1" style={{ color: '#A1A1AA' }}>{label}</p>
-                          <p className="font-bold text-sm" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00F0FF' }}>{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Feedback — premium only */}
-                  {isPremium && results.feedback ? (
-                    <div className="p-4 rounded-xl text-sm leading-relaxed mb-4" style={{ background: '#18181B', color: '#A1A1AA' }}>
-                      {results.feedback}
-                    </div>
-                  ) : !isPremium ? (
-                    <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(0,240,255,0.04)', border: '1px solid rgba(0,240,255,0.12)' }}>
-                      <div className="flex items-center gap-2 mb-3">
-                        <Lock className="h-4 w-4" style={{ color: '#00F0FF' }} />
-                        <p className="text-sm font-medium" style={{ color: '#00F0FF' }}>Premium Analysis Locked</p>
+                  {isPremium ? (
+                    <>
+                      {/* Premium: Mass + Aesthetic + Overall */}
+                      <div className="flex justify-center gap-8 mb-8 pb-8" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                        <RatingCircle score={results.mass} label="Mass" size="large" />
+                        <RatingCircle score={results.aesthetic} label="Aesthetic" size="large" />
+                        <RatingCircle score={results.overall} label="Overall" size="large" />
                       </div>
-                      <p className="text-xs mb-3" style={{ color: '#A1A1AA' }}>
-                        Upgrade to unlock: in-depth AI written analysis, specific improvement recommendations, body fat %, vascularity, and the ability to ask follow-up questions about your physique.
-                      </p>
-                      <button className="btn-primary w-full py-3" style={{ borderRadius: '10px' }} onClick={() => navigate('premium')}>
-                        <Crown className="h-4 w-4" /> Upgrade to Premium
-                      </button>
-                    </div>
-                  ) : null}
+
+                      {/* Muscle Groups */}
+                      <div className="grid grid-cols-3 gap-6 mb-8">
+                        {[
+                          { key: 'shoulders', label: 'Shoulders' }, { key: 'chest', label: 'Chest' }, { key: 'back', label: 'Back' },
+                          { key: 'arms', label: 'Arms' }, { key: 'core', label: 'Core' }, { key: 'legs', label: 'Legs' },
+                        ].map(({ key, label }) => (
+                          <RatingCircle key={key} score={results[key] || 0} label={label} />
+                        ))}
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="grid grid-cols-2 gap-3 mb-6">
+                        {[
+                          { label: 'Est. Body Fat', value: `${results.bodyFatEst}%` },
+                          { label: 'Vascularity', value: `${results.vascularity}/100` },
+                          { label: 'Symmetry', value: `${results.symmetry}/100` },
+                          { label: 'Conditioning', value: `${results.conditioning}/100` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="p-3 rounded-xl text-center" style={{ background: '#18181B' }}>
+                            <p className="text-xs mb-1" style={{ color: '#A1A1AA' }}>{label}</p>
+                            <p className="font-bold text-sm" style={{ fontFamily: 'JetBrains Mono, monospace', color: '#00F0FF' }}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Key Strengths */}
+                      {results.keyStrengths && (
+                        <div className="p-4 rounded-xl mb-3" style={{ background: 'rgba(34,197,94,0.06)', border: '1px solid rgba(34,197,94,0.15)' }}>
+                          <p className="text-xs font-semibold mb-1" style={{ color: '#22c55e' }}>Key Strengths</p>
+                          <p className="text-sm leading-relaxed" style={{ color: '#A1A1AA' }}>{results.keyStrengths}</p>
+                        </div>
+                      )}
+
+                      {/* Key Weaknesses */}
+                      {results.keyWeaknesses && (
+                        <div className="p-4 rounded-xl mb-3" style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                          <p className="text-xs font-semibold mb-1" style={{ color: '#ef4444' }}>Key Weaknesses</p>
+                          <p className="text-sm leading-relaxed" style={{ color: '#A1A1AA' }}>{results.keyWeaknesses}</p>
+                        </div>
+                      )}
+
+                      {/* Expert Feedback */}
+                      {results.feedback && (
+                        <div className="p-4 rounded-xl mb-4" style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.08)' }}>
+                          <p className="text-xs font-semibold mb-1" style={{ color: '#00F0FF' }}>Expert Analysis</p>
+                          <p className="text-sm leading-relaxed" style={{ color: '#A1A1AA' }}>{results.feedback}</p>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Free: Overall only */}
+                      <div className="flex justify-center mb-8 pb-8" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                        <RatingCircle score={results.overall} label="Overall" size="large" />
+                      </div>
+
+                      {/* Upgrade prompt */}
+                      <div className="p-4 rounded-xl mb-4" style={{ background: 'rgba(0,240,255,0.04)', border: '1px solid rgba(0,240,255,0.12)' }}>
+                        <div className="flex items-center gap-2 mb-3">
+                          <Lock className="h-4 w-4" style={{ color: '#00F0FF' }} />
+                          <p className="text-sm font-medium" style={{ color: '#00F0FF' }}>Full Analysis Locked</p>
+                        </div>
+                        <p className="text-xs mb-3" style={{ color: '#A1A1AA' }}>
+                          Upgrade to Premium to unlock Mass, Aesthetic, and Overall ratings, individual muscle group scores, body fat %, vascularity, key strengths and weaknesses, expert feedback, and follow-up Q&A.
+                        </p>
+                        <button className="btn-primary w-full py-3" style={{ borderRadius: '10px' }} onClick={() => navigate('premium')}>
+                          <Crown className="h-4 w-4" /> Upgrade to Premium
+                        </button>
+                      </div>
+                    </>
+                  )}
 
                   <p className="text-xs flex items-center gap-2" style={{ color: '#A1A1AA' }}>
                     <Check className="h-4 w-4" style={{ color: '#22c55e' }} />

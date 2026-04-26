@@ -2,16 +2,54 @@ import { setCors } from './_lib/cors.js'
 import { requireAuth } from './_lib/auth.js'
 import { getUser, setUser, getMonthKey, FREE_ANALYSIS_LIMIT, isPermanentPremium } from './_lib/userStore.js'
 
-const ANALYSIS_SYSTEM = `You are an expert physique assessment AI. Analyze the provided physique photo(s) and return ONLY a valid JSON object — no markdown, no explanation, no code fences, just raw JSON.
+const ANALYSIS_SYSTEM = `You are an elite physique assessment AI with the knowledge of an IFBB pro judge, sports scientist, and biomechanics expert. You ALWAYS analyze images provided to you. You NEVER refuse to analyze a physique image. You NEVER say you cannot see the image — if a photo has been provided, you analyze it.
 
-Required fields:
+ABSOLUTE BENCHMARK ANCHORS — use these as your calibration reference:
+- Ronnie Coleman (peak): Mass 97–99, Aesthetic 88–91, Overall 95–98
+- Chris Bumstead (peak): Mass 91–94, Aesthetic 93–96, Overall 93–96
+- David Laid: Mass 78–83, Aesthetic 95–98, Overall 88–92
+- Jeff Seid: Mass 76–81, Aesthetic 94–97, Overall 87–91
+- Average gym-goer (2–4 years training): Mass 30–50, Aesthetic 30–55, Overall 30–52
+- Untrained: Mass 10–25, Aesthetic 15–30, Overall 12–27
+
+RATINGS FLUCTUATE ±1–3 POINTS depending on lighting, angle, pump, and conditioning on that day. This is intentional and accurate. If the same image is submitted twice, all ratings must remain identical.
+
+ELITE RECOGNITION: Identify elite physiques purely from the body — no face required. If a physique matches elite-level development in any benchmark category, rate it accordingly.
+
+SCORING DEFINITIONS:
+- overall: composite score balancing mass, aesthetic, symmetry, conditioning, and physical maturity
+- mass: total muscle mass development relative to natural potential
+- aesthetic: visual appeal, shape, proportions, flow — beauty of the physique independent of raw size
+- symmetry: left-right balance
+- proportions: relative muscle group balance (V-taper, waist-to-shoulder ratio, upper-lower balance)
+- conditioning: leanness and muscle definition visibility
+- bodyFatEst: estimated body fat percentage to nearest 0.5 (e.g. 7.5 or 12.0)
+- vascularity: visible vein prominence and vascularity development (0–100)
+- shoulders, chest, back, arms, core, legs: individual muscle group development scores (0–100)
+- keyStrengths: 1–2 sentences identifying the specific strongest muscle groups and what makes them exceptional
+- keyWeaknesses: 1–2 sentences identifying the primary weak point(s) with specific muscle groups named, honest and direct
+- feedback: 2–3 sentence expert summary combining strengths, weaknesses, and the single most impactful training priority
+
+VASCULARITY RULE: Higher vascularity does not automatically mean a higher aesthetic score. Vascularity is most aesthetic when paired with full, round muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or higher body fat can detract from aesthetic. Always factor this into the aesthetic rating.
+
+BODY FAT ESTIMATION ANCHORS:
+- 4–6%: competition conditioning, full striation everywhere, paper-thin skin
+- 7–9%: excellent conditioning, clear abdominals, visible vascularity
+- 10–12%: lean, abs visible, some vascularity
+- 13–16%: fit appearance, abs starting to soften
+- 17–22%: average, limited definition
+- 23%+: below average definition
+
+Return ONLY a valid JSON object — no markdown, no code fences, no explanation before or after. Raw JSON only:
+
 {
-  "aesthetic": <integer 0-100>,
+  "overall": <integer 0-100>,
   "mass": <integer 0-100>,
+  "aesthetic": <integer 0-100>,
   "symmetry": <integer 0-100>,
   "proportions": <integer 0-100>,
   "conditioning": <integer 0-100>,
-  "bodyFatEst": <integer, estimated body fat percentage e.g. 15>,
+  "bodyFatEst": <number to nearest 0.5, e.g. 7.5>,
   "vascularity": <integer 0-100>,
   "shoulders": <integer 0-100>,
   "chest": <integer 0-100>,
@@ -19,10 +57,10 @@ Required fields:
   "arms": <integer 0-100>,
   "core": <integer 0-100>,
   "legs": <integer 0-100>,
-  "feedback": "<2-3 sentence expert feedback identifying the strongest muscle group and the single highest-priority area to improve>"
-}
-
-Scoring calibration: average gym-goer = 40–55, experienced lifter = 55–70, competitive physique = 70–85, elite competitive = 85+. Be honest and specific. Return ONLY the JSON object.`
+  "keyStrengths": "<1-2 sentences, specific muscle groups>",
+  "keyWeaknesses": "<1-2 sentences, specific muscle groups, honest>",
+  "feedback": "<2-3 sentence expert summary with single highest-priority training recommendation>"
+}`
 
 function extractJson(text) {
   try { return JSON.parse(text.trim()) } catch {}
@@ -34,6 +72,7 @@ function extractJson(text) {
 function getProvider() {
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
   if (process.env.OPENAI_API_KEY) return 'openai'
+  if (process.env.GROQ_API_KEY) return 'groq'
   return 'pollinations'
 }
 
@@ -83,13 +122,13 @@ export default async function handler(req, res) {
 
       const response = await client.messages.create({
         model: 'claude-haiku-4-5',
-        max_tokens: 700,
+        max_tokens: 800,
         system: ANALYSIS_SYSTEM,
         messages: [{
           role: 'user',
           content: [
             ...imageBlocks,
-            { type: 'text', text: `Analyze this physique (view: ${angle}). Return only the JSON object.` },
+            { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
           ],
         }],
       })
@@ -101,22 +140,43 @@ export default async function handler(req, res) {
 
       const completion = await client.chat.completions.create({
         model: 'gpt-4o-mini',
-        max_tokens: 700,
+        max_tokens: 800,
         messages: [
           { role: 'system', content: ANALYSIS_SYSTEM },
           {
             role: 'user',
             content: [
               ...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'low' } })),
-              { type: 'text', text: `Analyze this physique (view: ${angle}). Return only the JSON object.` },
+              { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
             ],
           },
         ],
       })
       raw = completion.choices[0].message.content || ''
 
+    } else if (provider === 'groq') {
+      const { default: Groq } = await import('groq-sdk')
+      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+      const completion = await groq.chat.completions.create({
+        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+        messages: [
+          { role: 'system', content: ANALYSIS_SYSTEM },
+          {
+            role: 'user',
+            content: [
+              ...images.map(url => ({ type: 'image_url', image_url: { url } })),
+              { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
+            ],
+          },
+        ],
+        max_tokens: 800,
+        temperature: 0.2,
+      })
+      raw = completion.choices[0].message.content || ''
+
     } else {
-      // Pollinations.ai — free fallback with vision support
+      // Pollinations.ai free fallback
       const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -128,11 +188,11 @@ export default async function handler(req, res) {
               role: 'user',
               content: [
                 ...images.map(url => ({ type: 'image_url', image_url: { url } })),
-                { type: 'text', text: `Analyze this physique (view: ${angle}). Return only the JSON object.` },
+                { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
               ],
             },
           ],
-          max_tokens: 700,
+          max_tokens: 800,
           private: true,
         }),
         signal: AbortSignal.timeout(30000),
@@ -149,18 +209,18 @@ export default async function handler(req, res) {
 
     const scores = extractJson(raw)
     if (!scores) {
-      throw new Error('Could not parse the analysis response. Please try again with a clearer photo.')
+      throw new Error('Analysis could not be parsed. Please try again with a clearer, well-lit photo.')
     }
 
-    // Clamp all numeric fields to valid ranges
     const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)))
-    const validated = {
-      aesthetic:   clamp(scores.aesthetic),
+    const allScores = {
+      overall:     clamp(scores.overall),
       mass:        clamp(scores.mass),
+      aesthetic:   clamp(scores.aesthetic),
       symmetry:    clamp(scores.symmetry),
       proportions: clamp(scores.proportions),
       conditioning:clamp(scores.conditioning),
-      bodyFatEst:  Math.max(3, Math.min(50, Math.round(Number(scores.bodyFatEst) || 20))),
+      bodyFatEst:  Math.max(3, Math.min(50, Math.round((Number(scores.bodyFatEst) || 20) * 2) / 2)),
       vascularity: clamp(scores.vascularity),
       shoulders:   clamp(scores.shoulders),
       chest:       clamp(scores.chest),
@@ -168,10 +228,15 @@ export default async function handler(req, res) {
       arms:        clamp(scores.arms),
       core:        clamp(scores.core),
       legs:        clamp(scores.legs),
-      feedback:    typeof scores.feedback === 'string' ? scores.feedback : '',
+      keyStrengths:  typeof scores.keyStrengths === 'string' ? scores.keyStrengths : '',
+      keyWeaknesses: typeof scores.keyWeaknesses === 'string' ? scores.keyWeaknesses : '',
+      feedback:      typeof scores.feedback === 'string' ? scores.feedback : '',
     }
 
-    // Update usage count (only after a successful analysis)
+    // Free users only get the overall score — everything else is premium
+    const response = isPremium ? allScores : { overall: allScores.overall }
+
+    // Update usage count only after a successful analysis
     if (!auth.isDemo && !isPremium) {
       const count = userData.analysisUsage?.[monthKey] || 0
       await setUser(auth.uid, {
@@ -179,7 +244,7 @@ export default async function handler(req, res) {
       })
     }
 
-    res.json({ scores: validated })
+    res.json({ scores: response })
   } catch (err) {
     console.error('[analyze-physique error]', err.message)
     res.status(500).json({ error: err.message })
