@@ -16,6 +16,8 @@ import Premium from './pages/Premium';
 import ReauthModal from './components/ReauthModal';
 import Account from './pages/Account';
 import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
+import RefundPolicy from './pages/RefundPolicy';
 import CookieBanner, { hasConsent } from './components/CookieBanner';
 import InstallPrompt from './components/InstallPrompt';
 import { initAnalytics } from './analytics';
@@ -34,7 +36,37 @@ const PAGE_TITLES = {
   premium:        'Myogen | Pricing',
   account:        'Myogen | Account',
   privacy:        'Myogen | Privacy Policy',
+  terms:          'Myogen | Terms of Service',
+  refund:         'Myogen | Refund Policy',
   'email-verified': 'Myogen | Email Verified',
+};
+
+// Hash-based URL routing
+const HASH_MAP = {
+  '#home':       'landing',
+  '#signin':     'auth',
+  '#dashboard':  'dashboard',
+  '#physique':   'physique',
+  '#knowledge':  'knowledge',
+  '#quizzes':    'quizzes',
+  '#pricing':    'premium',
+  '#account':    'account',
+  '#privacy':    'privacy',
+  '#terms':      'terms',
+  '#refund':     'refund',
+};
+const PAGE_TO_HASH = {
+  landing:   '#home',
+  auth:      '#signin',
+  dashboard: '#dashboard',
+  physique:  '#physique',
+  knowledge: '#knowledge',
+  quizzes:   '#quizzes',
+  premium:   '#pricing',
+  account:   '#account',
+  privacy:   '#privacy',
+  terms:     '#terms',
+  refund:    '#refund',
 };
 
 function mapFirebaseUser(firebaseUser) {
@@ -64,8 +96,18 @@ export default function App() {
     if (params.get('emailVerified') === '1') {
       window.history.replaceState({}, '', window.location.pathname);
       setPage('email-verified');
+      return;
     }
+    // Hash-based routing for public legal/pricing pages
+    const hashPage = HASH_MAP[window.location.hash];
+    if (hashPage) setPage(hashPage);
   }, []);
+
+  // Sync URL hash when navigating
+  useEffect(() => {
+    const hash = PAGE_TO_HASH[page];
+    if (hash) window.history.replaceState({}, '', hash);
+  }, [page]);
 
   useEffect(() => {
     document.title = PAGE_TITLES[page] || 'Myogen';
@@ -248,6 +290,8 @@ export default function App() {
       case 'premium':   return <Premium {...commonProps} />;
       case 'account':   return <Account {...commonProps} />;
       case 'privacy':        return <PrivacyPolicy navigate={navigate} />;
+      case 'terms':          return <TermsOfService navigate={navigate} />;
+      case 'refund':         return <RefundPolicy navigate={navigate} />;
       case 'email-verified': return <EmailVerified />;
       default:               return <Landing {...commonProps} />;
     }
