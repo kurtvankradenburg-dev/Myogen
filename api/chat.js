@@ -269,12 +269,102 @@ function buildSystemPrompt(tone = 'scientific', shortMode = false) {
   return SYSTEM_PROMPT + `\n\nCurrent tone: ${tone}. ${toneInstruction}${modeInstruction}`
 }
 
-function getProvider() {
-  if (process.env.GEMINI_API_KEY) return 'gemini'
-  if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
-  if (process.env.OPENAI_API_KEY) return 'openai'
-  if (process.env.GROQ_API_KEY) return 'groq'
-  return 'pollinations'
+function getProviders() {
+  const list = []
+  if (process.env.GEMINI_API_KEY) list.push('gemini')
+  if (process.env.ANTHROPIC_API_KEY) list.push('anthropic')
+  if (process.env.OPENAI_API_KEY) list.push('openai')
+  if (process.env.GROQ_API_KEY) list.push('groq')
+  list.push('pollinations')
+  return list
+}
+
+async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
+  // Groq has a ~12k TPM hard limit — trim conversation history to stay under it
+  const MAX_GROQ_MESSAGES = 6
+  const msgs = provider === 'groq' && messages.length > MAX_GROQ_MESSAGES
+    ? messages.slice(-MAX_GROQ_MESSAGES)
+    : messages
+
+  if (provider === 'gemini') {
+    const geminiMessages = msgs.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }))
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemPrompt }] },
+          contents: geminiMessages,
+          generationConfig: { maxOutputTokens: maxTokens, temperature: 0.35 },
+        }),
+        signal: AbortSignal.timeout(25000),
+      }
+    )
+    if (res.status === 429) { const e = new Error('Gemini rate limit exceeded'); e.isRateLimit = true; throw e }
+    if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`Gemini error ${res.status}: ${t.slice(0, 120)}`) }
+    const d = await res.json()
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  }
+
+  if (provider === 'anthropic') {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk')
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5',
+      max_tokens: maxTokens,
+      system: systemPrompt,
+      messages: msgs.map(m => ({ role: m.role, content: m.content })),
+    })
+    return response.content[0]?.text || ''
+  }
+
+  if (provider === 'openai') {
+    const { default: OpenAI } = await import('openai')
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: maxTokens,
+      temperature: 0.35,
+      messages: [{ role: 'system', content: systemPrompt }, ...msgs.map(m => ({ role: m.role, content: m.content }))],
+    })
+    return completion.choices[0].message.content || ''
+  }
+
+  if (provider === 'groq') {
+    const { default: Groq } = await import('groq-sdk')
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const completion = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [{ role: 'system', content: systemPrompt }, ...msgs.map(m => ({ role: m.role, content: m.content }))],
+      max_tokens: maxTokens,
+      temperature: 0.35,
+    })
+    return completion.choices[0].message.content || ''
+  }
+
+  // Pollinations.ai free fallback
+  const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [{ role: 'system', content: systemPrompt }, ...msgs.map(m => ({ role: m.role, content: m.content }))],
+      max_tokens: Math.min(maxTokens, 800),
+      temperature: 0.35,
+      private: true,
+    }),
+    signal: AbortSignal.timeout(25000),
+  })
+  if (!pollinationsRes.ok) {
+    const errText = await pollinationsRes.text().catch(() => '')
+    throw new Error(`Pollinations error ${pollinationsRes.status}: ${errText.slice(0, 120)}`)
+  }
+  const pollinationsData = await pollinationsRes.json()
+  return pollinationsData.choices?.[0]?.message?.content || ''
 }
 
 export default async function handler(req, res) {
@@ -314,107 +404,23 @@ export default async function handler(req, res) {
     }
   }
 
-  const provider = getProvider()
-
-  // Groq free tier has a ~12k TPM hard limit per request.
-  // System prompt alone is ~5.5k tokens, so cap conversation history.
-  // Keep the last 6 messages (3 exchanges) for Groq to stay safely under the limit.
-  const MAX_GROQ_MESSAGES = 6
-  const trimmedMessages = provider === 'groq' && messages.length > MAX_GROQ_MESSAGES
-    ? messages.slice(-MAX_GROQ_MESSAGES)
-    : messages
+  const providers = getProviders()
 
   try {
     let raw = ''
+    let lastRateLimitErr = null
 
-    if (provider === 'gemini') {
-      const geminiMessages = trimmedMessages.map(m => ({
-        role: m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }],
-      }))
-
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemPrompt }] },
-            contents: geminiMessages,
-            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.35 },
-          }),
-          signal: AbortSignal.timeout(25000),
-        }
-      )
-
-      if (!geminiRes.ok) {
-        const errText = await geminiRes.text().catch(() => '')
-        throw new Error(`Gemini error ${geminiRes.status}: ${errText.slice(0, 120)}`)
+    for (const p of providers) {
+      try {
+        raw = await callChatProvider(p, messages, systemPrompt, maxTokens)
+        break
+      } catch (err) {
+        if (err.isRateLimit) { lastRateLimitErr = err; continue }
+        throw err
       }
-
-      const geminiData = await geminiRes.json()
-      raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
-
-    } else if (provider === 'anthropic') {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk')
-      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const response = await client.messages.create({
-        model: 'claude-haiku-4-5',
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: trimmedMessages.map(m => ({ role: m.role, content: m.content })),
-      })
-      raw = response.content[0]?.text || ''
-    } else if (provider === 'openai') {
-      const { default: OpenAI } = await import('openai')
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      const completion = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        max_tokens: maxTokens,
-        temperature: 0.35,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
-        ],
-      })
-      raw = completion.choices[0].message.content || ''
-    } else if (provider === 'groq') {
-      const { default: Groq } = await import('groq-sdk')
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-      const completion = await groq.chat.completions.create({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.35,
-      })
-      raw = completion.choices[0].message.content || ''
-    } else {
-      // Pollinations.ai — free, no API key required, always online
-      const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'openai',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...trimmedMessages.map(m => ({ role: m.role, content: m.content })),
-          ],
-          max_tokens: Math.min(maxTokens, 800),
-          temperature: 0.35,
-          private: true,
-        }),
-        signal: AbortSignal.timeout(25000),
-      })
-      if (!pollinationsRes.ok) {
-        const errText = await pollinationsRes.text().catch(() => '')
-        throw new Error(`Pollinations error ${pollinationsRes.status}: ${errText.slice(0, 120)}`)
-      }
-      const pollinationsData = await pollinationsRes.json()
-      raw = pollinationsData.choices?.[0]?.message?.content || ''
     }
+
+    if (!raw) throw lastRateLimitErr || new Error('All providers failed')
 
     const clean = raw.replace(/#\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim()
 
@@ -427,7 +433,7 @@ export default async function handler(req, res) {
 
     res.json({ content: clean })
   } catch (err) {
-    console.error(`[${provider} error]`, err.message)
+    console.error('[chat error]', err.message)
     res.status(500).json({ error: err.message })
   }
 }

@@ -69,12 +69,109 @@ function extractJson(text) {
   return null
 }
 
-function getProvider() {
-  if (process.env.GEMINI_API_KEY) return 'gemini'
-  if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
-  if (process.env.OPENAI_API_KEY) return 'openai'
-  if (process.env.GROQ_API_KEY) return 'groq'
-  return 'pollinations'
+function getProviders() {
+  const list = []
+  if (process.env.GEMINI_API_KEY) list.push('gemini')
+  if (process.env.ANTHROPIC_API_KEY) list.push('anthropic')
+  if (process.env.OPENAI_API_KEY) list.push('openai')
+  if (process.env.GROQ_API_KEY) list.push('groq')
+  list.push('pollinations')
+  return list
+}
+
+async function callAnalysisProvider(provider, images, angle) {
+  if (provider === 'gemini') {
+    const imageParts = images.map(dataUrl => {
+      const [header, data] = dataUrl.split(',')
+      const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
+      return { inlineData: { mimeType, data } }
+    })
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: ANALYSIS_SYSTEM }] },
+          contents: [{ parts: [...imageParts, { text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] }],
+          generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
+        }),
+        signal: AbortSignal.timeout(30000),
+      }
+    )
+    if (res.status === 429) { const e = new Error('Gemini rate limit exceeded'); e.isRateLimit = true; throw e }
+    if (!res.ok) { const t = await res.text().catch(() => ''); throw new Error(`Gemini error ${res.status}: ${t.slice(0, 120)}`) }
+    const d = await res.json()
+    return d.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  }
+
+  if (provider === 'anthropic') {
+    const { default: Anthropic } = await import('@anthropic-ai/sdk')
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const imageBlocks = images.map(dataUrl => {
+      const [header, data] = dataUrl.split(',')
+      const mediaType = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
+      return { type: 'image', source: { type: 'base64', media_type: mediaType, data } }
+    })
+    const response = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 800,
+      system: ANALYSIS_SYSTEM,
+      messages: [{ role: 'user', content: [...imageBlocks, { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] }],
+    })
+    return response.content[0]?.text || ''
+  }
+
+  if (provider === 'openai') {
+    const { default: OpenAI } = await import('openai')
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const completion = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      max_tokens: 800,
+      messages: [
+        { role: 'system', content: ANALYSIS_SYSTEM },
+        { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'low' } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
+      ],
+    })
+    return completion.choices[0].message.content || ''
+  }
+
+  if (provider === 'groq') {
+    const { default: Groq } = await import('groq-sdk')
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const completion = await groq.chat.completions.create({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: [
+        { role: 'system', content: ANALYSIS_SYSTEM },
+        { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
+      ],
+      max_tokens: 800,
+      temperature: 0.2,
+    })
+    return completion.choices[0].message.content || ''
+  }
+
+  // Pollinations.ai free fallback
+  const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'openai',
+      messages: [
+        { role: 'system', content: ANALYSIS_SYSTEM },
+        { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
+      ],
+      max_tokens: 800,
+      private: true,
+    }),
+    signal: AbortSignal.timeout(30000),
+  })
+  if (!pollinationsRes.ok) {
+    const errText = await pollinationsRes.text().catch(() => '')
+    throw new Error(`Analysis failed (${pollinationsRes.status}): ${errText.slice(0, 120)}`)
+  }
+  const pollinationsData = await pollinationsRes.json()
+  return pollinationsData.choices?.[0]?.message?.content || ''
 }
 
 export default async function handler(req, res) {
@@ -106,141 +203,23 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'No images provided.' })
   }
 
-  const provider = getProvider()
+  const providers = getProviders()
 
   try {
     let raw = ''
+    let lastRateLimitErr = null
 
-    if (provider === 'gemini') {
-      const imageParts = images.map(dataUrl => {
-        const [header, data] = dataUrl.split(',')
-        const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
-        return { inlineData: { mimeType, data } }
-      })
-
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: ANALYSIS_SYSTEM }] },
-            contents: [{
-              parts: [
-                ...imageParts,
-                { text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
-              ],
-            }],
-            generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
-          }),
-          signal: AbortSignal.timeout(30000),
-        }
-      )
-
-      if (!geminiRes.ok) {
-        const errText = await geminiRes.text().catch(() => '')
-        throw new Error(`Gemini error ${geminiRes.status}: ${errText.slice(0, 120)}`)
+    for (const p of providers) {
+      try {
+        raw = await callAnalysisProvider(p, images, angle)
+        break
+      } catch (err) {
+        if (err.isRateLimit) { lastRateLimitErr = err; continue }
+        throw err
       }
-
-      const geminiData = await geminiRes.json()
-      raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
-
-    } else if (provider === 'anthropic') {
-      const { default: Anthropic } = await import('@anthropic-ai/sdk')
-      const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-      const imageBlocks = images.map(dataUrl => {
-        const [header, data] = dataUrl.split(',')
-        const mediaType = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
-        return { type: 'image', source: { type: 'base64', media_type: mediaType, data } }
-      })
-
-      const response = await client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
-        system: ANALYSIS_SYSTEM,
-        messages: [{
-          role: 'user',
-          content: [
-            ...imageBlocks,
-            { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
-          ],
-        }],
-      })
-      raw = response.content[0]?.text || ''
-
-    } else if (provider === 'openai') {
-      const { default: OpenAI } = await import('openai')
-      const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
-      const completion = await client.chat.completions.create({
-        model: 'gpt-4o-mini',
-        max_tokens: 800,
-        messages: [
-          { role: 'system', content: ANALYSIS_SYSTEM },
-          {
-            role: 'user',
-            content: [
-              ...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'low' } })),
-              { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
-            ],
-          },
-        ],
-      })
-      raw = completion.choices[0].message.content || ''
-
-    } else if (provider === 'groq') {
-      const { default: Groq } = await import('groq-sdk')
-      const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
-
-      const completion = await groq.chat.completions.create({
-        model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-        messages: [
-          { role: 'system', content: ANALYSIS_SYSTEM },
-          {
-            role: 'user',
-            content: [
-              ...images.map(url => ({ type: 'image_url', image_url: { url } })),
-              { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
-            ],
-          },
-        ],
-        max_tokens: 800,
-        temperature: 0.2,
-      })
-      raw = completion.choices[0].message.content || ''
-
-    } else {
-      // Pollinations.ai free fallback
-      const pollinationsRes = await fetch('https://text.pollinations.ai/openai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'openai',
-          messages: [
-            { role: 'system', content: ANALYSIS_SYSTEM },
-            {
-              role: 'user',
-              content: [
-                ...images.map(url => ({ type: 'image_url', image_url: { url } })),
-                { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
-              ],
-            },
-          ],
-          max_tokens: 800,
-          private: true,
-        }),
-        signal: AbortSignal.timeout(30000),
-      })
-
-      if (!pollinationsRes.ok) {
-        const errText = await pollinationsRes.text().catch(() => '')
-        throw new Error(`Analysis failed (${pollinationsRes.status}): ${errText.slice(0, 120)}`)
-      }
-
-      const pollinationsData = await pollinationsRes.json()
-      raw = pollinationsData.choices?.[0]?.message?.content || ''
     }
+
+    if (!raw) throw lastRateLimitErr || new Error('All providers failed')
 
     const scores = extractJson(raw)
     if (!scores) {
