@@ -29,11 +29,12 @@ Then place on the overall scale:
 
 CRITICAL: A physique with visible abs, visible vascularity, and full muscle bellies CANNOT score below 75 overall. Scoring such a physique at 50–65 is a calibration failure. The 50s range is reserved for average gym-goers with limited definition — not for lean, conditioned, well-developed physiques.
 
-VIEW-AWARE SCORING: Only score what is visible in the photo. Do NOT penalise unseen muscle groups.
-- Front photo: you can assess shoulders, chest, arms, core, quads. You CANNOT see back or calves — estimate those neutrally based on overall development, do not dock points for what you cannot see.
-- Back photo: you can assess back, rear delts, hamstrings, glutes, calves. You CANNOT see chest — estimate neutrally.
-- Side photo: assess profile shape, shoulder-to-waist ratio, arm, core, quad sweep from side.
-- All views: score each muscle group on what IS visible; use overall physique proportions to inform estimates for unseen groups.
+VIEW-AWARE SCORING: You MUST always provide a score for every muscle group field — never omit any. However, base scores only on what is actually visible:
+- Front photo: directly assess shoulders, chest, arms, core, quads. For back and calves (not visible), estimate from overall proportions and what IS visible — do NOT penalise them for being unseen.
+- Back photo: directly assess back, rear delts, hamstrings, glutes, calves. Estimate chest and front from overall development.
+- Side photo: assess profile, shoulder width, arm, core, quad sweep. Estimate unseen groups from proportions.
+- All views: score everything directly.
+Never assign a low score to a muscle group purely because it is not in frame. An unseen muscle group should be estimated at a neutral-to-positive value consistent with the rest of the physique.
 
 RATINGS FLUCTUATE ±1–3 POINTS depending on lighting, angle, pump, and conditioning on that day. This is intentional and accurate. If the same image is submitted twice, all ratings must remain identical.
 
@@ -85,8 +86,6 @@ ALL 14 numeric fields are REQUIRED. You must include every field below — do no
   "feedback": "<2-3 sentence expert summary including vascularity's specific contribution or detraction to aesthetic, and single highest-priority training recommendation>"
 }`
 
-const REQUIRED_NUMERIC = ['overall','mass','aesthetic','symmetry','proportions','conditioning','vascularity','shoulders','chest','back','arms','core','legs']
-
 function extractJson(text) {
   let parsed = null
   try { parsed = JSON.parse(text.trim()) } catch {}
@@ -94,10 +93,8 @@ function extractJson(text) {
     const match = text.match(/\{[\s\S]*\}/)
     if (match) { try { parsed = JSON.parse(match[0]) } catch {} }
   }
-  if (!parsed) return null
-  // Reject if any required numeric field is missing or zero when it shouldn't be
-  const missing = REQUIRED_NUMERIC.filter(k => parsed[k] === undefined || parsed[k] === null)
-  if (missing.length > 0) return null
+  // Only require overall — missing muscle group fields get defaulted in the handler
+  if (!parsed || parsed.overall === undefined || parsed.overall === null) return null
   return parsed
 }
 
