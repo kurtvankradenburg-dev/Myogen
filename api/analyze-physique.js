@@ -70,6 +70,7 @@ function extractJson(text) {
 }
 
 function getProvider() {
+  if (process.env.GEMINI_API_KEY) return 'gemini'
   if (process.env.ANTHROPIC_API_KEY) return 'anthropic'
   if (process.env.OPENAI_API_KEY) return 'openai'
   if (process.env.GROQ_API_KEY) return 'groq'
@@ -110,7 +111,41 @@ export default async function handler(req, res) {
   try {
     let raw = ''
 
-    if (provider === 'anthropic') {
+    if (provider === 'gemini') {
+      const imageParts = images.map(dataUrl => {
+        const [header, data] = dataUrl.split(',')
+        const mimeType = header.match(/:(.*?);/)?.[1] || 'image/jpeg'
+        return { inlineData: { mimeType, data } }
+      })
+
+      const geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: ANALYSIS_SYSTEM }] },
+            contents: [{
+              parts: [
+                ...imageParts,
+                { text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` },
+              ],
+            }],
+            generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
+          }),
+          signal: AbortSignal.timeout(30000),
+        }
+      )
+
+      if (!geminiRes.ok) {
+        const errText = await geminiRes.text().catch(() => '')
+        throw new Error(`Gemini error ${geminiRes.status}: ${errText.slice(0, 120)}`)
+      }
+
+      const geminiData = await geminiRes.json()
+      raw = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || ''
+
+    } else if (provider === 'anthropic') {
       const { default: Anthropic } = await import('@anthropic-ai/sdk')
       const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
