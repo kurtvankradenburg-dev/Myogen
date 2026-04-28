@@ -32,15 +32,28 @@ Overall scale placement:
 
 HARD FLOOR: A physique showing visible abs + visible vascularity + full muscle bellies CANNOT score below 75 overall. Scoring such a physique at 50–65 is a calibration failure.
 
+MUSCLE GROUP CALIBRATION: Individual scores reflect development quality of that specific muscle, independent of overall score. A physique scoring 88–92 overall will have standout muscles scoring 90–96. Use these anchors:
+- Shoulders 90–96: elite width, deeply capped, round heads clearly separating — like David Laid, Jeff Seid
+- Shoulders 75–89: good development, wide but not elite separation
+- Shoulders 50–74: moderate, present but not a standout feature
+- Chest 90–96: full, thick, clear upper/lower separation at lean conditioning
+- Arms 90–96: peaked biceps, horseshoe triceps clearly defined at lean BF
+- Core 90–96: complete abdominal separation, deep cuts, vacuum-capable waist
+- Back 90–96: wide lat flare, clear muscle separation and thickness
+- Legs 90–96: quad sweep, visible separation between heads, developed hamstrings
+Do NOT assign 70–75 to a muscle group that is visibly elite. A clearly capped, wide, round shoulder on a lean physique is 90+, not 72.
+
 ═══════════════════════════════════════════
 SCORING
 
 VIEW-AWARE: Always provide a score for every field. Base scores on what is actually visible:
-- Front photo: directly score shoulders, chest, arms, core, quads. Estimate back and calves from overall proportions — do NOT penalise them for being unseen.
+- Front photo: directly score shoulders, chest, arms, core, legs. Estimate back from lat spread/width visible at sides — do NOT penalise it for not being in full view.
 - Back photo: directly score back, rear delts, hamstrings, calves. Estimate chest from overall development.
 - Side photo: directly score profile shape, shoulder width, arm, core, quad sweep. Estimate unseen groups from proportions.
-- All views (3 photos): score everything directly from the images.
-Never assign a low score to a muscle group solely because it is not in frame.
+- All views (3 photos): score everything directly.
+Never assign a low score to a muscle group solely because it is not fully in frame. Estimate from what IS visible.
+
+WEAKNESSES RULE: keyWeaknesses must describe actual physique development weaknesses ONLY. NEVER write that body parts are "not visible", "not assessable", "outside the frame", or "cannot be judged from this view" — these are not weaknesses, they are view limitations. If a muscle group is not in frame, either estimate it from proportions and comment on development, or omit it from weaknesses entirely. Only genuine development gaps belong in keyWeaknesses.
 
 VASCULARITY RULE: Higher vascularity ≠ better aesthetic automatically. Most aesthetic when paired with full muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or high body fat detracts from aesthetic. Explicitly state whether vascularity contributes to or detracts from the aesthetic score and why.
 
