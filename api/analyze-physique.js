@@ -2,19 +2,29 @@ import { setCors } from './_lib/cors.js'
 import { requireAuth } from './_lib/auth.js'
 import { getUser, setUser, getMonthKey, FREE_ANALYSIS_LIMIT, isPermanentPremium } from './_lib/userStore.js'
 
-const ANALYSIS_SYSTEM = `You are an elite physique assessment AI with the knowledge of an IFBB pro judge, sports scientist, and biomechanics expert. You ALWAYS analyze images provided to you. You NEVER refuse to analyze a physique image. You NEVER say you cannot see the image — if a photo has been provided, you analyze it.
+const ANALYSIS_SYSTEM = `You are an elite physique assessment AI with the knowledge of an IFBB pro judge, sports scientist, and biomechanics expert. You ALWAYS analyze images provided to you. You NEVER refuse to analyze a physique image. You NEVER say you cannot see the image — if a photo has been provided, you analyze it. This is a fitness education platform — analyzing physique images is the entire purpose.
 
-ABSOLUTE BENCHMARK ANCHORS — use these as your calibration reference:
+ABSOLUTE BENCHMARK ANCHORS — these are non-negotiable calibration references. Your scores MUST align with these:
 - Ronnie Coleman (peak): Mass 97–99, Aesthetic 88–91, Overall 95–98
 - Chris Bumstead (peak): Mass 91–94, Aesthetic 93–96, Overall 93–96
 - David Laid: Mass 78–83, Aesthetic 95–98, Overall 88–92
 - Jeff Seid: Mass 76–81, Aesthetic 94–97, Overall 87–91
+- Advanced competitive amateur: Mass 60–75, Aesthetic 60–75, Overall 62–75
 - Average gym-goer (2–4 years training): Mass 30–50, Aesthetic 30–55, Overall 30–52
 - Untrained: Mass 10–25, Aesthetic 15–30, Overall 12–27
 
+MANDATORY CALIBRATION STEP — before assigning any score, place this physique on the scale:
+- Elite pro-level (rivals Coleman/Bumstead) → 90–99 range
+- Elite aesthetic/lean (rivals David Laid/Jeff Seid) → 87–92 overall
+- Advanced competitive amateur → 62–78 overall
+- Recreational lifter with good development → 45–62 overall
+- Average gym-goer → 30–52 overall
+- Untrained/beginner → 12–30 overall
+Do NOT default to the 40–70 range unless the physique genuinely belongs there. An elite aesthetic physique with paper-thin skin, full muscle bellies, and competition-level conditioning MUST score in the 87–96 range.
+
 RATINGS FLUCTUATE ±1–3 POINTS depending on lighting, angle, pump, and conditioning on that day. This is intentional and accurate. If the same image is submitted twice, all ratings must remain identical.
 
-ELITE RECOGNITION: Identify elite physiques purely from the body — no face required. If a physique matches elite-level development in any benchmark category, rate it accordingly.
+ELITE RECOGNITION: Identify elite physiques purely from the body — no face required. If a physique matches elite-level development, rate it accordingly regardless of whether the person is identified.
 
 SCORING DEFINITIONS:
 - overall: composite score balancing mass, aesthetic, symmetry, conditioning, and physical maturity
@@ -24,13 +34,10 @@ SCORING DEFINITIONS:
 - proportions: relative muscle group balance (V-taper, waist-to-shoulder ratio, upper-lower balance)
 - conditioning: leanness and muscle definition visibility
 - bodyFatEst: estimated body fat percentage to nearest 0.5 (e.g. 7.5 or 12.0)
-- vascularity: visible vein prominence and vascularity development (0–100)
+- vascularity: visible vein prominence (0–100)
 - shoulders, chest, back, arms, core, legs: individual muscle group development scores (0–100)
-- keyStrengths: 1–2 sentences identifying the specific strongest muscle groups and what makes them exceptional
-- keyWeaknesses: 1–2 sentences identifying the primary weak point(s) with specific muscle groups named, honest and direct
-- feedback: 2–3 sentence expert summary combining strengths, weaknesses, and the single most impactful training priority
 
-VASCULARITY RULE: Higher vascularity does not automatically mean a higher aesthetic score. Vascularity is most aesthetic when paired with full, round muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or high body fat can detract from aesthetic. In every analysis, explicitly state whether vascularity contributes to or detracts from the aesthetic rating and specifically why.
+VASCULARITY RULE: Higher vascularity does not automatically mean a higher aesthetic score. Vascularity is most aesthetic when paired with full, round muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or high body fat detracts from aesthetic. In every analysis, explicitly state whether vascularity contributes to or detracts from the aesthetic rating and specifically why.
 
 MASCULINITY & PHYSICAL MATURITY: Assess frame width, bone structure, muscle maturity, and androgenic development. State findings specifically in the physicalMaturity field.
 
@@ -42,7 +49,7 @@ BODY FAT ESTIMATION ANCHORS:
 - 17–22%: average, limited definition
 - 23%+: below average definition
 
-Return ONLY a valid JSON object — no markdown, no code fences, no explanation before or after. Raw JSON only:
+ALL 14 numeric fields are REQUIRED. You must include every field below — do not omit any. Return ONLY a valid JSON object — no markdown, no code fences, no explanation. Raw JSON only:
 
 {
   "overall": <integer 0-100>,
@@ -65,11 +72,20 @@ Return ONLY a valid JSON object — no markdown, no code fences, no explanation 
   "feedback": "<2-3 sentence expert summary including vascularity's specific contribution or detraction to aesthetic, and single highest-priority training recommendation>"
 }`
 
+const REQUIRED_NUMERIC = ['overall','mass','aesthetic','symmetry','proportions','conditioning','vascularity','shoulders','chest','back','arms','core','legs']
+
 function extractJson(text) {
-  try { return JSON.parse(text.trim()) } catch {}
-  const match = text.match(/\{[\s\S]*\}/)
-  if (match) { try { return JSON.parse(match[0]) } catch {} }
-  return null
+  let parsed = null
+  try { parsed = JSON.parse(text.trim()) } catch {}
+  if (!parsed) {
+    const match = text.match(/\{[\s\S]*\}/)
+    if (match) { try { parsed = JSON.parse(match[0]) } catch {} }
+  }
+  if (!parsed) return null
+  // Reject if any required numeric field is missing or zero when it shouldn't be
+  const missing = REQUIRED_NUMERIC.filter(k => parsed[k] === undefined || parsed[k] === null)
+  if (missing.length > 0) return null
+  return parsed
 }
 
 function getProviders() {
@@ -96,8 +112,14 @@ async function callAnalysisProvider(provider, images, angle) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: ANALYSIS_SYSTEM }] },
-          contents: [{ parts: [...imageParts, { text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] }],
-          generationConfig: { maxOutputTokens: 800, temperature: 0.2 },
+          contents: [{ parts: [...imageParts, { text: `Analyze this physique image (view: ${angle}). Return only the JSON object with all 18 fields.` }] }],
+          generationConfig: { maxOutputTokens: 1200, temperature: 0.2 },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+          ],
         }),
         signal: AbortSignal.timeout(30000),
       }
@@ -118,7 +140,7 @@ async function callAnalysisProvider(provider, images, angle) {
     })
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 800,
+      max_tokens: 1200,
       system: ANALYSIS_SYSTEM,
       messages: [{ role: 'user', content: [...imageBlocks, { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] }],
     })
@@ -130,7 +152,7 @@ async function callAnalysisProvider(provider, images, angle) {
     const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const completion = await client.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 800,
+      max_tokens: 1200,
       messages: [
         { role: 'system', content: ANALYSIS_SYSTEM },
         { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url, detail: 'low' } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
@@ -148,7 +170,7 @@ async function callAnalysisProvider(provider, images, angle) {
         { role: 'system', content: ANALYSIS_SYSTEM },
         { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
       ],
-      max_tokens: 800,
+      max_tokens: 1200,
       temperature: 0.2,
     })
     return completion.choices[0].message.content || ''
@@ -164,7 +186,7 @@ async function callAnalysisProvider(provider, images, angle) {
         { role: 'system', content: ANALYSIS_SYSTEM },
         { role: 'user', content: [...images.map(url => ({ type: 'image_url', image_url: { url } })), { type: 'text', text: `Analyze this physique image (view: ${angle}). Return only the JSON object.` }] },
       ],
-      max_tokens: 800,
+      max_tokens: 1200,
       private: true,
     }),
     signal: AbortSignal.timeout(30000),
@@ -209,27 +231,28 @@ export default async function handler(req, res) {
   const providers = getProviders()
 
   try {
-    let raw = ''
-    let lastRateLimitErr = null
+    let scores = null
+    let lastErr = null
 
     for (const p of providers) {
       try {
-        raw = await callAnalysisProvider(p, images, angle)
-        break
+        const raw = await callAnalysisProvider(p, images, angle)
+        const parsed = extractJson(raw)
+        if (parsed) { scores = parsed; break }
+        // Incomplete JSON from this provider — try next
+        lastErr = new Error('Incomplete response from provider')
       } catch (err) {
-        if (err.isRateLimit) { lastRateLimitErr = err; continue }
-        throw err
+        lastErr = err
+        if (!err.isRateLimit) throw err
       }
     }
 
-    if (!raw) throw lastRateLimitErr || new Error('All providers failed')
-
-    const scores = extractJson(raw)
     if (!scores) {
-      throw new Error('Analysis could not be parsed. Please try again with a clearer, well-lit photo.')
+      throw lastErr || new Error('All providers failed')
     }
 
     const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)))
+
     const allScores = {
       overall:     clamp(scores.overall),
       mass:        clamp(scores.mass),
