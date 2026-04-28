@@ -217,7 +217,7 @@ async function callAnalysisProvider(provider, images, angle) {
       max_tokens: 1200,
       private: true,
     }),
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(7000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
@@ -272,7 +272,10 @@ export default async function handler(req, res) {
         break
       } catch (err) {
         lastErr = err
-        if (!err.isRateLimit) throw err
+        // Rate limits and timeouts (AbortError/TimeoutError) → try next provider
+        // Only hard-fail on unexpected errors
+        const isTransient = err.isRateLimit || err.name === 'AbortError' || err.name === 'TimeoutError'
+        if (!isTransient) throw err
       }
     }
 

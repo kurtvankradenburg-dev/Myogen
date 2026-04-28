@@ -420,17 +420,19 @@ export default async function handler(req, res) {
     let raw = ''
     let lastRateLimitErr = null
 
+    let lastErr = null
     for (const p of providers) {
       try {
         raw = await callChatProvider(p, messages, systemPrompt, maxTokens)
-        break
+        if (raw) break
       } catch (err) {
-        if (err.isRateLimit) { lastRateLimitErr = err; continue }
-        throw err
+        lastErr = err
+        const isTransient = err.isRateLimit || err.name === 'AbortError' || err.name === 'TimeoutError'
+        if (!isTransient) throw err
       }
     }
 
-    if (!raw) throw lastRateLimitErr || new Error('All providers failed')
+    if (!raw) throw lastErr || new Error('All providers failed')
 
     const clean = raw.replace(/#\S+/g, '').replace(/[ \t]{2,}/g, ' ').trim()
 
