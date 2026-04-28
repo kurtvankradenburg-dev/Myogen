@@ -107,7 +107,6 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState('');
-  const [rejected, setRejected] = useState(false);
   const [photoAngle, setPhotoAngle] = useState('front');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [analysisCount, setAnalysisCount] = useState(0);
@@ -155,7 +154,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
   function handleSingleFile(file) {
     if (!validateFile(file)) return;
     const reader = new FileReader();
-    reader.onload = e => { setSingleImage(e.target.result); setResults(null); setError(''); setRejected(false); setQaMessages([]); };
+    reader.onload = e => { setSingleImage(e.target.result); setResults(null); setError(''); setQaMessages([]); };
     reader.readAsDataURL(file);
   }
 
@@ -176,7 +175,6 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
     setLoading(true);
     setResults(null);
     setError('');
-    setRejected(false);
     setQaMessages([]);
 
     try {
@@ -212,11 +210,6 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
       if (res.status === 403) {
         setAnalysisCount(1);
         setError(data.error || 'Monthly limit reached.');
-        return;
-      }
-      if (res.status === 422 && data.rejected) {
-        setRejected(true);
-        setError(data.error || 'Photo could not be analyzed.');
         return;
       }
       if (!res.ok) throw new Error(data.error || `Analysis failed (${res.status})`);
@@ -443,9 +436,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
               </div>
 
               {error && (
-                <div className="mt-4 p-3 rounded-xl text-sm" style={rejected
-                  ? { background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.25)', color: '#eab308' }
-                  : { background: 'rgba(239,68,68,0.1)',  border: '1px solid rgba(239,68,68,0.2)',  color: '#ef4444' }}>
+                <div className="mt-4 p-3 rounded-xl text-sm" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', color: '#ef4444' }}>
                   {error}
                 </div>
               )}
@@ -567,6 +558,11 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
                     </>
                   )}
 
+                  {results.note && (
+                    <div className="p-3 rounded-xl mb-3 text-sm" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#eab308' }}>
+                      {results.note}
+                    </div>
+                  )}
                   <p className="text-xs flex items-center gap-2" style={{ color: '#A1A1AA' }}>
                     <Check className="h-4 w-4" style={{ color: '#22c55e' }} />
                     AI analysis complete

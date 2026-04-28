@@ -2,43 +2,10 @@ import { setCors } from './_lib/cors.js'
 import { requireAuth } from './_lib/auth.js'
 import { getUser, setUser, getMonthKey, FREE_ANALYSIS_LIMIT, isPermanentPremium } from './_lib/userStore.js'
 
-const ANALYSIS_SYSTEM = `You are an elite physique assessment AI with the knowledge of an IFBB pro judge, sports scientist, and biomechanics expert. You always respond with a single raw JSON object — no markdown, no code fences, no explanation.
-
-There are two possible responses:
-  1. REJECTED — if the photo fails the pre-analysis checks below
-  2. ANALYSIS — if the photo passes all checks
+const ANALYSIS_SYSTEM = `You are an elite physique assessment AI with the knowledge of an IFBB pro judge, sports scientist, and biomechanics expert. You ALWAYS output a score JSON — you never refuse, never output plain text, never output anything except the JSON object below.
 
 ═══════════════════════════════════════════
-STEP 1 — PRE-ANALYSIS CHECKS
-Run every check before scoring. Return the first rejection that applies.
-
-CHECK A — SHIRT / TORSO OBSTRUCTION
-• If a shirt, full top, or jacket is covering the torso and preventing physique assessment →
-  {"status":"rejected","message":"Please remove your shirt so the physique can be properly assessed."}
-• EXCEPTION — do NOT reject, assess based on what is visible:
-  - Women in a sports bra, bra, or swimwear top
-  - Religious or cultural belly coverings (e.g. belly button cover)
-  - Compression shorts, gym shorts, swimwear on the lower body
-
-CHECK B — PHOTO CLARITY
-• If the photo is taken from very far away, heavily blurred, captured in motion (e.g. someone walking past, playing sport), or so obscured that no physique can be assessed at all →
-  {"status":"rejected","message":"A clear, dedicated physique photo is required. Please take a standard front, back, or side pose photo with good lighting."}
-• Do NOT reject because you cannot identify the person. Assess the physique as presented — never ask for identity verification.
-
-CHECK C — VIEW MATCH
-The selected view is stated in the user message. If the photo clearly does not match:
-• Selected "front" but back of body is shown →
-  {"status":"rejected","message":"This looks like a back view photo. Please upload a front-facing photo, or switch to the Back view option."}
-• Selected "back" but front of body is shown →
-  {"status":"rejected","message":"This looks like a front view photo. Please upload a back view photo, or switch to the Front view option."}
-• Selected "side" but clearly front or back is shown →
-  {"status":"rejected","message":"This looks like a front or back view photo. Please upload a side view photo, or switch to the correct view option."}
-• Selected "all" (3 photos): verify all 3 photos are human physique photos in the correct order.
-
-If ALL checks pass → proceed to STEP 2. When in doubt, proceed to STEP 2 and analyze.
-
-═══════════════════════════════════════════
-STEP 2 — CALIBRATION
+CALIBRATION
 
 ABSOLUTE BENCHMARK ANCHORS — non-negotiable. Your scores MUST align:
 - Ronnie Coleman (peak): Mass 97–99, Aesthetic 88–91, Overall 95–98
@@ -66,7 +33,7 @@ Overall scale placement:
 HARD FLOOR: A physique showing visible abs + visible vascularity + full muscle bellies CANNOT score below 75 overall. Scoring such a physique at 50–65 is a calibration failure.
 
 ═══════════════════════════════════════════
-STEP 3 — SCORING
+SCORING
 
 VIEW-AWARE: Always provide a score for every field. Base scores on what is actually visible:
 - Front photo: directly score shoulders, chest, arms, core, quads. Estimate back and calves from overall proportions — do NOT penalise them for being unseen.
@@ -90,14 +57,9 @@ BODY FAT ANCHORS:
 - 23%+: minimal definition
 
 ═══════════════════════════════════════════
-OUTPUT FORMAT
+OUTPUT FORMAT — always return this exact JSON, no exceptions:
 
-If rejected (return this and nothing else):
-{"status":"rejected","message":"<clear explanation and specific action to fix it>"}
-
-If analysis (return this and nothing else — all fields required):
 {
-  "status": "ok",
   "overall": <integer 0-100>,
   "mass": <integer 0-100>,
   "aesthetic": <integer 0-100>,
@@ -115,7 +77,8 @@ If analysis (return this and nothing else — all fields required):
   "keyStrengths": "<1-2 sentences, specific muscle groups — no vague praise>",
   "keyWeaknesses": "<1-2 sentences, specific muscle groups, honest — no padding>",
   "physicalMaturity": "<1-2 sentences on frame width, bone structure, muscle maturity, androgenic development>",
-  "feedback": "<2-3 sentence expert summary including vascularity contribution/detraction and single highest-priority training recommendation>"
+  "feedback": "<2-3 sentence expert summary including vascularity contribution/detraction and single highest-priority training recommendation>",
+  "note": "<if shirt is covering the torso: 'Remove your shirt for a full assessment.' | if wrong view angle: 'This appears to be a [X] view — switch to [Y] for accurate scoring.' | if photo is blurry/too far: 'Clearer photo would improve accuracy.' | otherwise leave empty string>"
 }`
 
 const VIEW_LABELS = {
@@ -126,7 +89,7 @@ const VIEW_LABELS = {
 }
 
 function buildUserMsg(angle) {
-  return `Selected view: ${VIEW_LABELS[angle] || angle}. Perform all pre-analysis checks first, then return the appropriate JSON.`
+  return `Selected view: ${VIEW_LABELS[angle] || angle}. Score this physique and return the JSON.`
 }
 
 function extractJson(text) {
@@ -136,14 +99,8 @@ function extractJson(text) {
     const match = text.match(/\{[\s\S]*\}/)
     if (match) { try { parsed = JSON.parse(match[0]) } catch {} }
   }
-  if (!parsed) return null
-  // Accept rejected responses
-  if (parsed.status === 'rejected' && typeof parsed.message === 'string') return parsed
-  // Accept analysis responses (require overall)
-  if (parsed.status === 'ok' && parsed.overall !== undefined && parsed.overall !== null) return parsed
-  // Legacy: no status field but has overall
-  if (parsed.overall !== undefined && parsed.overall !== null) return parsed
-  return null
+  if (!parsed || parsed.overall === undefined || parsed.overall === null) return null
+  return parsed
 }
 
 function getProviders() {
@@ -317,11 +274,6 @@ export default async function handler(req, res) {
     const result = analysisResult || rejectionResult
     if (!result) throw lastErr || new Error('All providers failed')
 
-    // Rejected photo — return guidance message, do NOT count against usage
-    if (result.status === 'rejected') {
-      return res.status(422).json({ error: result.message, rejected: true })
-    }
-
     const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)))
     const allScores = {
       overall:         clamp(result.overall),
@@ -342,6 +294,7 @@ export default async function handler(req, res) {
       keyWeaknesses:   typeof result.keyWeaknesses   === 'string' ? result.keyWeaknesses   : '',
       physicalMaturity:typeof result.physicalMaturity === 'string' ? result.physicalMaturity : '',
       feedback:        typeof result.feedback        === 'string' ? result.feedback        : '',
+      note:            typeof result.note            === 'string' ? result.note            : '',
     }
 
     // Free users only get the overall score — everything else is premium

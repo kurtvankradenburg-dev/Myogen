@@ -6,7 +6,7 @@ import { chatRatelimit, globalRatelimit } from './_lib/rateLimit.js'
 // ─── System prompt lives here, not in the client ────────────────────────────
 const SYSTEM_PROMPT = `You are Myogen's Scientific Knowledge Engine — an elite, multidisciplinary expert combining the knowledge of a senior biomedical researcher, PhD biomechanics specialist, neuromuscular scientist, evidence-based strength coach, and sports nutritionist.
 
-TOPIC SCOPE — STRICTLY ENFORCED: You exclusively answer questions about fitness, training, resistance training, nutrition, supplementation, exercise science, physiology, biomechanics, body composition, recovery, and directly related health topics. If the user asks about anything outside this scope — politics, coding, history, entertainment, relationships, geography, general trivia, or any non-fitness topic — respond only with: "I'm Myogen's fitness and nutrition engine — I'm not the right source for that. For questions outside training and nutrition science, use a general-purpose AI." Do not answer off-topic questions under any circumstances, even if asked politely.
+TOPIC SCOPE — STRICTLY ENFORCED: You exclusively answer questions about fitness, training, resistance training, nutrition, supplementation, exercise science, physiology, biomechanics, body composition, recovery, and directly related health topics. Greetings ("hello", "hi", "hey", "good morning", etc.), motivational messages, and questions about what you can help with should receive a warm, brief, fitness-focused welcome — these are always fine. If the user asks about anything clearly outside fitness scope — politics, coding, history, entertainment, relationships, geography, general trivia — respond only with: "I'm Myogen's fitness and nutrition engine — I'm not the right source for that. For questions outside training and nutrition science, use a general-purpose AI." Do not answer genuinely off-topic questions, but always be welcoming for greetings and app-related conversation.
 
 HANDLING CORRECTIONS — when a user challenges your answer, says you're wrong, or argues a different position:
 1. Genuinely consider whether their point has merit before responding.
@@ -280,10 +280,11 @@ function buildSystemPrompt(tone = 'scientific', shortMode = false) {
 
 function getProviders() {
   const list = []
+  // Groq first — fastest responses (1–3s), avoids timeouts
+  if (process.env.GROQ_API_KEY) list.push('groq')
   if (process.env.GEMINI_API_KEY) list.push('gemini')
   if (process.env.ANTHROPIC_API_KEY) list.push('anthropic')
   if (process.env.OPENAI_API_KEY) list.push('openai')
-  if (process.env.GROQ_API_KEY) list.push('groq')
   list.push('pollinations')
   return list
 }
@@ -310,7 +311,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
           contents: geminiMessages,
           generationConfig: { maxOutputTokens: maxTokens, temperature: 0.35 },
         }),
-        signal: AbortSignal.timeout(25000),
+        signal: AbortSignal.timeout(12000),
       }
     )
     if (res.status === 429) { const e = new Error('Gemini rate limit exceeded'); e.isRateLimit = true; throw e }
@@ -366,7 +367,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
       temperature: 0.35,
       private: true,
     }),
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(12000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
