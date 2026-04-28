@@ -13,11 +13,13 @@ STEP 1 — PRE-ANALYSIS CHECKS
 Run every check before scoring. Return the first rejection that applies.
 
 CHECK A — IS THERE A HUMAN PHYSIQUE TO ASSESS?
-• No human visible, or clearly unrelated image (food, objects, animals, scenery, cars, etc.) →
-  {"status":"rejected","message":"No physique detected. Please upload a clear photo of a human physique."}
-• Person is fully clothed in everyday clothes (jeans, hoodie, suit, jacket) with the torso completely hidden →
-  {"status":"rejected","message":"Please upload a photo without clothing covering the physique so it can be properly assessed."}
-• A shirt or full top is covering the torso →
+• A shirtless person, a person in gym/fitness attire, or any person visibly showing their body/muscles IS a valid physique photo — do NOT reject these under any circumstances.
+• Only reject if there is genuinely NO human physique to assess:
+  - No human visible at all (food, objects, animals, scenery, cars, empty gym, etc.) →
+    {"status":"rejected","message":"No physique detected. Please upload a clear photo of a human physique."}
+  - A person is visible but fully clothed in everyday clothes (jeans, hoodie, suit) with the torso and body completely hidden, making physique assessment impossible →
+    {"status":"rejected","message":"Please upload a photo without clothing covering the physique so it can be properly assessed."}
+• A shirt or full top covering the torso when the rest is assessable →
   {"status":"rejected","message":"Please remove your shirt so the physique can be assessed."}
   ↳ EXCEPTION: Women in a sports bra, bra, or swimwear top — enough is visible. Assess based on what can be seen. Do NOT ask them to remove it.
   ↳ EXCEPTION: Religious or cultural belly coverings (e.g. belly button cover) — enough is visible. Proceed and assess based on what can be seen.
@@ -293,21 +295,30 @@ export default async function handler(req, res) {
   const providers = getProviders()
 
   try {
-    let result = null
+    let analysisResult = null  // first successful analysis (status: ok)
+    let rejectionResult = null // first rejection received (kept as fallback)
     let lastErr = null
 
     for (const p of providers) {
       try {
         const raw = await callAnalysisProvider(p, images, angle)
         const parsed = extractJson(raw)
-        if (parsed) { result = parsed; break }
-        lastErr = new Error('Could not parse analysis response. Please try again.')
+        if (!parsed) { lastErr = new Error('Could not parse analysis response. Please try again.'); continue }
+        if (parsed.status === 'rejected') {
+          if (!rejectionResult) rejectionResult = parsed // save first rejection but keep trying
+          continue
+        }
+        // Got a valid analysis from this provider
+        analysisResult = parsed
+        break
       } catch (err) {
         lastErr = err
         if (!err.isRateLimit) throw err
       }
     }
 
+    // Prefer a successful analysis over a rejection — Gemini often over-rejects valid physique photos
+    const result = analysisResult || rejectionResult
     if (!result) throw lastErr || new Error('All providers failed')
 
     // Rejected photo — return guidance message, do NOT count against usage
