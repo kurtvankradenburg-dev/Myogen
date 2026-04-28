@@ -558,11 +558,6 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
                     </>
                   )}
 
-                  {results.note && (
-                    <div className="p-3 rounded-xl mb-3 text-sm" style={{ background: 'rgba(234,179,8,0.08)', border: '1px solid rgba(234,179,8,0.2)', color: '#eab308' }}>
-                      {results.note}
-                    </div>
-                  )}
                   <p className="text-xs flex items-center gap-2" style={{ color: '#A1A1AA' }}>
                     <Check className="h-4 w-4" style={{ color: '#22c55e' }} />
                     AI analysis complete

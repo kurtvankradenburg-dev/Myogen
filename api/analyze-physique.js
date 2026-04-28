@@ -77,8 +77,7 @@ OUTPUT FORMAT — always return this exact JSON, no exceptions:
   "keyStrengths": "<1-2 sentences, specific muscle groups — no vague praise>",
   "keyWeaknesses": "<1-2 sentences, specific muscle groups, honest — no padding>",
   "physicalMaturity": "<1-2 sentences on frame width, bone structure, muscle maturity, androgenic development>",
-  "feedback": "<2-3 sentence expert summary including vascularity contribution/detraction and single highest-priority training recommendation>",
-  "note": "<if shirt is covering the torso: 'Remove your shirt for a full assessment.' | if wrong view angle: 'This appears to be a [X] view — switch to [Y] for accurate scoring.' | if photo is blurry/too far: 'Clearer photo would improve accuracy.' | otherwise leave empty string>"
+  "feedback": "<2-3 sentence expert summary including vascularity contribution/detraction and single highest-priority training recommendation>"
 }`
 
 const VIEW_LABELS = {
@@ -103,13 +102,25 @@ function extractJson(text) {
   return parsed
 }
 
+// Detect when the AI returned a placeholder/garbage response instead of a real analysis
+function isUsableResponse(parsed) {
+  const text = [(parsed.keyStrengths || ''), (parsed.keyWeaknesses || ''), (parsed.feedback || '')].join(' ').toLowerCase()
+  const badPhrases = ['none discernible', 'cannot assess', 'unable to assess', 'cannot determine', 'not discernible', 'no discernible', 'cannot be determined', 'insufficient detail']
+  if (badPhrases.some(p => text.includes(p))) return false
+  if ((parsed.overall || 0) < 5) return false  // clearly garbage
+  return true
+}
+
 function getProviders() {
   const list = []
-  if (process.env.GEMINI_API_KEY) list.push('gemini')
-  if (process.env.ANTHROPIC_API_KEY) list.push('anthropic')
+  // OpenAI and Anthropic handle physique images best — use first if available
   if (process.env.OPENAI_API_KEY) list.push('openai')
+  if (process.env.ANTHROPIC_API_KEY) list.push('anthropic')
   if (process.env.GROQ_API_KEY) list.push('groq')
+  // Pollinations (free GPT-4o proxy) before Gemini — better physique vision
   list.push('pollinations')
+  // Gemini last — content policies often prevent proper physique analysis
+  if (process.env.GEMINI_API_KEY) list.push('gemini')
   return list
 }
 
@@ -138,7 +149,7 @@ async function callAnalysisProvider(provider, images, angle) {
             { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
           ],
         }),
-        signal: AbortSignal.timeout(30000),
+        signal: AbortSignal.timeout(8000),
       }
     )
     if (res.status === 429) { const e = new Error('Gemini rate limit exceeded'); e.isRateLimit = true; throw e }
@@ -206,7 +217,7 @@ async function callAnalysisProvider(provider, images, angle) {
       max_tokens: 1200,
       private: true,
     }),
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(10000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
@@ -248,21 +259,16 @@ export default async function handler(req, res) {
   const providers = getProviders()
 
   try {
-    let analysisResult = null  // first successful analysis (status: ok)
-    let rejectionResult = null // first rejection received (kept as fallback)
+    let result = null
     let lastErr = null
 
     for (const p of providers) {
       try {
         const raw = await callAnalysisProvider(p, images, angle)
         const parsed = extractJson(raw)
-        if (!parsed) { lastErr = new Error('Could not parse analysis response. Please try again.'); continue }
-        if (parsed.status === 'rejected') {
-          if (!rejectionResult) rejectionResult = parsed // save first rejection but keep trying
-          continue
-        }
-        // Got a valid analysis from this provider
-        analysisResult = parsed
+        if (!parsed) { lastErr = new Error('Could not parse response. Please try again.'); continue }
+        if (!isUsableResponse(parsed)) { lastErr = new Error('Analysis was inconclusive. Please try again with a clearer photo.'); continue }
+        result = parsed
         break
       } catch (err) {
         lastErr = err
@@ -270,8 +276,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Prefer a successful analysis over a rejection — Gemini often over-rejects valid physique photos
-    const result = analysisResult || rejectionResult
     if (!result) throw lastErr || new Error('All providers failed')
 
     const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, Math.round(Number(v) || 0)))
@@ -294,7 +298,6 @@ export default async function handler(req, res) {
       keyWeaknesses:   typeof result.keyWeaknesses   === 'string' ? result.keyWeaknesses   : '',
       physicalMaturity:typeof result.physicalMaturity === 'string' ? result.physicalMaturity : '',
       feedback:        typeof result.feedback        === 'string' ? result.feedback        : '',
-      note:            typeof result.note            === 'string' ? result.note            : '',
     }
 
     // Free users only get the overall score — everything else is premium

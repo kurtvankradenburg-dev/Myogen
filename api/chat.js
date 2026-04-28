@@ -311,7 +311,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
           contents: geminiMessages,
           generationConfig: { maxOutputTokens: maxTokens, temperature: 0.35 },
         }),
-        signal: AbortSignal.timeout(12000),
+        signal: AbortSignal.timeout(8000),
       }
     )
     if (res.status === 429) { const e = new Error('Gemini rate limit exceeded'); e.isRateLimit = true; throw e }
@@ -367,7 +367,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
       temperature: 0.35,
       private: true,
     }),
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(10000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
