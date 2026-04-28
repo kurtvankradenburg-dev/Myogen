@@ -519,6 +519,14 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
                         </div>
                       )}
 
+                      {/* Physical Maturity */}
+                      {results.physicalMaturity && (
+                        <div className="p-4 rounded-xl mb-3" style={{ background: 'rgba(0,240,255,0.04)', border: '1px solid rgba(0,240,255,0.12)' }}>
+                          <p className="text-xs font-semibold mb-1" style={{ color: '#00F0FF' }}>Physical Maturity</p>
+                          <p className="text-sm leading-relaxed" style={{ color: '#A1A1AA' }}>{results.physicalMaturity}</p>
+                        </div>
+                      )}
+
                       {/* Expert Feedback */}
                       {results.feedback && (
                         <div className="p-4 rounded-xl mb-4" style={{ background: '#18181B', border: '1px solid rgba(255,255,255,0.08)' }}>

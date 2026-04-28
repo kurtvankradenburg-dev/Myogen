@@ -30,7 +30,9 @@ SCORING DEFINITIONS:
 - keyWeaknesses: 1–2 sentences identifying the primary weak point(s) with specific muscle groups named, honest and direct
 - feedback: 2–3 sentence expert summary combining strengths, weaknesses, and the single most impactful training priority
 
-VASCULARITY RULE: Higher vascularity does not automatically mean a higher aesthetic score. Vascularity is most aesthetic when paired with full, round muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or higher body fat can detract from aesthetic. Always factor this into the aesthetic rating.
+VASCULARITY RULE: Higher vascularity does not automatically mean a higher aesthetic score. Vascularity is most aesthetic when paired with full, round muscle bellies at sub-10% body fat. Extreme vascularity with poor fullness or high body fat can detract from aesthetic. In every analysis, explicitly state whether vascularity contributes to or detracts from the aesthetic rating and specifically why.
+
+MASCULINITY & PHYSICAL MATURITY: Assess frame width, bone structure, muscle maturity, and androgenic development. State findings specifically in the physicalMaturity field.
 
 BODY FAT ESTIMATION ANCHORS:
 - 4–6%: competition conditioning, full striation everywhere, paper-thin skin
@@ -57,9 +59,10 @@ Return ONLY a valid JSON object — no markdown, no code fences, no explanation 
   "arms": <integer 0-100>,
   "core": <integer 0-100>,
   "legs": <integer 0-100>,
-  "keyStrengths": "<1-2 sentences, specific muscle groups>",
-  "keyWeaknesses": "<1-2 sentences, specific muscle groups, honest>",
-  "feedback": "<2-3 sentence expert summary with single highest-priority training recommendation>"
+  "keyStrengths": "<1-2 sentences, specific muscle groups — no vague praise>",
+  "keyWeaknesses": "<1-2 sentences, specific muscle groups, honest — no padding>",
+  "physicalMaturity": "<1-2 sentences on frame width, bone structure, muscle maturity, and androgenic development>",
+  "feedback": "<2-3 sentence expert summary including vascularity's specific contribution or detraction to aesthetic, and single highest-priority training recommendation>"
 }`
 
 function extractJson(text) {
@@ -242,9 +245,10 @@ export default async function handler(req, res) {
       arms:        clamp(scores.arms),
       core:        clamp(scores.core),
       legs:        clamp(scores.legs),
-      keyStrengths:  typeof scores.keyStrengths === 'string' ? scores.keyStrengths : '',
-      keyWeaknesses: typeof scores.keyWeaknesses === 'string' ? scores.keyWeaknesses : '',
-      feedback:      typeof scores.feedback === 'string' ? scores.feedback : '',
+      keyStrengths:    typeof scores.keyStrengths === 'string' ? scores.keyStrengths : '',
+      keyWeaknesses:   typeof scores.keyWeaknesses === 'string' ? scores.keyWeaknesses : '',
+      physicalMaturity:typeof scores.physicalMaturity === 'string' ? scores.physicalMaturity : '',
+      feedback:        typeof scores.feedback === 'string' ? scores.feedback : '',
     }
 
     // Free users only get the overall score — everything else is premium
