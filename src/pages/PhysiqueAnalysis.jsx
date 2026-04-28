@@ -408,7 +408,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
                     style={{ border: '2px dashed rgba(255,255,255,0.1)' }}
                     onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(0,240,255,0.5)'; }}
                     onDragLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
-                    onDrop={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; handleSingleFile(e.dataTransfer.files[0]); }}
+                    onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; handleSingleFile(e.dataTransfer.files[0]); }}
                     onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(0,240,255,0.4)'}
                     onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'}
                   >
