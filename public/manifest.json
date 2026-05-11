@@ -2,6 +2,7 @@
   "name": "Myogen",
   "short_name": "Myogen",
   "description": "Science-based physique analysis and human biology education. Zero bro-science.",
+  "id": "/",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#050505",

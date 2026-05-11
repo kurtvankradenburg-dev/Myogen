@@ -20,6 +20,7 @@ import TermsOfService from './pages/TermsOfService';
 import RefundPolicy from './pages/RefundPolicy';
 import CookieBanner, { hasConsent } from './components/CookieBanner';
 import InstallPrompt from './components/InstallPrompt';
+import UpdateToast from './components/UpdateToast';
 import { initAnalytics } from './analytics';
 
 const PERMANENT_PREMIUM_EMAIL = 'kurtvankradenburg@gmail.com';
@@ -315,6 +316,7 @@ export default function App() {
         onPrivacyClick={() => navigate('privacy')}
       />
       <InstallPrompt />
+      <UpdateToast />
     </>
   );
 }

@@ -363,11 +363,11 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
     body: JSON.stringify({
       model: 'openai',
       messages: [{ role: 'system', content: systemPrompt }, ...msgs.map(m => ({ role: m.role, content: m.content }))],
-      max_tokens: Math.min(maxTokens, 800),
+      max_tokens: maxTokens,
       temperature: 0.35,
       private: true,
     }),
-    signal: AbortSignal.timeout(10000),
+    signal: AbortSignal.timeout(25000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
@@ -395,8 +395,10 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Please wait before sending more messages.' })
   }
 
-  const { messages, tone = 'scientific', shortMode = false, maxTokens = 1000 } = req.body
-  const systemPrompt = buildSystemPrompt(tone, shortMode)
+  const { messages, tone = 'scientific', shortMode = false, maxTokens = 1000, physiqueContext } = req.body
+  const systemPrompt = physiqueContext
+    ? `You are Myogen's physique analysis AI. The user's physique was just analyzed with these results: ${physiqueContext}\n\nAnswer their questions about their physique with expert, science-based advice. Reference specific scores when relevant. Be direct, actionable, and educational. Write in flowing prose paragraphs — never use bullet points or lists. Not medical advice.`
+    : buildSystemPrompt(tone, shortMode)
 
   let userData = null
   let isPremium = false
@@ -418,17 +420,14 @@ export default async function handler(req, res) {
 
   try {
     let raw = ''
-    let lastRateLimitErr = null
-
     let lastErr = null
     for (const p of providers) {
       try {
         raw = await callChatProvider(p, messages, systemPrompt, maxTokens)
         if (raw) break
       } catch (err) {
+        console.error(`[chat] ${p} failed:`, err.message)
         lastErr = err
-        const isTransient = err.isRateLimit || err.name === 'AbortError' || err.name === 'TimeoutError'
-        if (!isTransient) throw err
       }
     }
 
@@ -446,6 +445,7 @@ export default async function handler(req, res) {
     res.json({ content: clean })
   } catch (err) {
     console.error('[chat error]', err.message)
-    res.status(500).json({ error: err.message })
+    const isUserFacing = err.message?.includes('limit') || err.message?.includes('Upgrade')
+    res.status(500).json({ error: isUserFacing ? err.message : 'Something went wrong. Please try again.' })
   }
 }

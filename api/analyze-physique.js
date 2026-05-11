@@ -59,6 +59,10 @@ VASCULARITY RULE: Higher vascularity ≠ better aesthetic automatically. Most ae
 
 MASCULINITY & PHYSICAL MATURITY: Assess frame width, bone structure, muscle maturity, and androgenic development. State findings specifically in physicalMaturity.
 
+VISIBILITY ACKNOWLEDGMENT: In the "feedback" field, if key muscle groups were estimated rather than directly visible (e.g. legs in a torso-only shot, back in a front-only photo), briefly note which areas had limited visibility and that scores for those areas could change with dedicated views. Example: "Leg development appears solid from what's visible; a dedicated lower-body photo could reveal more detail and potentially adjust that score." This is NOT a weakness — keep it out of keyWeaknesses. Never use limited visibility as an excuse for a low score — estimate accurately from available cues, then note the limitation.
+
+STRICT ACCURACY: Every score must be defensible to an experienced lifter. Do NOT inflate or deflate — score exactly what the visual evidence supports. If shoulders are clearly capped, round, and elite, score them 90+, not 72. If body fat shows clear abs but soft obliques, that is 10–12%, not 7%. Body fat estimates are critical — lifters will fact-check. Use the body fat anchors precisely. A physique that matches David Laid tier benchmarks should score within those benchmark ranges, not below them.
+
 RATINGS FLUCTUATE ±1–3 points with lighting, angle, pump, and conditioning. If the same image is submitted twice, all ratings must be identical.
 
 BODY FAT ANCHORS:
@@ -230,7 +234,7 @@ async function callAnalysisProvider(provider, images, angle) {
       max_tokens: 1200,
       private: true,
     }),
-    signal: AbortSignal.timeout(7000),
+    signal: AbortSignal.timeout(30000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
@@ -284,11 +288,8 @@ export default async function handler(req, res) {
         result = parsed
         break
       } catch (err) {
+        console.error(`[analyze-physique] ${p} failed:`, err.message)
         lastErr = err
-        // Rate limits and timeouts (AbortError/TimeoutError) → try next provider
-        // Only hard-fail on unexpected errors
-        const isTransient = err.isRateLimit || err.name === 'AbortError' || err.name === 'TimeoutError'
-        if (!isTransient) throw err
       }
     }
 
@@ -330,6 +331,7 @@ export default async function handler(req, res) {
     res.json({ scores: response })
   } catch (err) {
     console.error('[analyze-physique error]', err.message)
-    res.status(500).json({ error: err.message })
+    const isUserFacing = err.message?.includes('limit') || err.message?.includes('Upgrade') || err.message?.includes('clearer photo')
+    res.status(500).json({ error: isUserFacing ? err.message : 'Analysis failed. Please try again.' })
   }
 }

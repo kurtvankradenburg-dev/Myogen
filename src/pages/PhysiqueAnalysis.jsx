@@ -231,8 +231,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
     setQaInput('');
     setQaLoading(true);
 
-    const scoresContext = `Physique analysis scores — Aesthetic: ${results.aesthetic}/100, Mass: ${results.mass}/100, Symmetry: ${results.symmetry}/100, Proportions: ${results.proportions}/100, Conditioning: ${results.conditioning}/100, Est. Body Fat: ${results.bodyFatEst}%, Vascularity: ${results.vascularity}/100, Shoulders: ${results.shoulders}/100, Chest: ${results.chest}/100, Back: ${results.back}/100, Arms: ${results.arms}/100, Core: ${results.core}/100, Legs: ${results.legs}/100.`;
-    const systemPrompt = `You are Myogen's physique analysis AI. The user's physique was just analyzed with these results: ${scoresContext}\n\nAnswer their questions about their physique with expert, science-based advice. Reference specific scores when relevant. Be direct, actionable, and educational. Not medical advice.`;
+    const physiqueContext = `Physique analysis scores — Aesthetic: ${results.aesthetic}/100, Mass: ${results.mass}/100, Symmetry: ${results.symmetry}/100, Proportions: ${results.proportions}/100, Conditioning: ${results.conditioning}/100, Est. Body Fat: ${results.bodyFatEst}%, Vascularity: ${results.vascularity}/100, Shoulders: ${results.shoulders}/100, Chest: ${results.chest}/100, Back: ${results.back}/100, Arms: ${results.arms}/100, Core: ${results.core}/100, Legs: ${results.legs}/100.`;
 
     try {
       const token = await getAuthToken();
@@ -244,7 +243,7 @@ export default function PhysiqueAnalysis({ navigate, isPremium, user, page }) {
         },
         body: JSON.stringify({
           messages: [...qaMessages, userMsg].map(m => ({ role: m.role, content: m.content })),
-          systemPrompt,
+          physiqueContext,
           maxTokens: 600,
         }),
       });
