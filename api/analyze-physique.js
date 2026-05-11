@@ -32,6 +32,8 @@ Overall scale placement:
 
 HARD FLOOR: A physique showing visible abs + visible vascularity + full muscle bellies CANNOT score below 75 overall. Scoring such a physique at 50–65 is a calibration failure.
 
+ELITE RECOGNITION: Identify elite physiques purely from the body — no face required. If a physique matches elite-level development (capped delts, full muscle bellies, deep conditioning, visible vascularity, exceptional V-taper), rate it according to the benchmark anchors regardless of whether the person is identified by name.
+
 MUSCLE GROUP CALIBRATION: Individual scores reflect development quality of that specific muscle, independent of overall score. A physique scoring 88–92 overall will have standout muscles scoring 90–96. Use these anchors:
 - Shoulders 90–96: elite width, deeply capped, round heads clearly separating — like David Laid, Jeff Seid
 - Shoulders 75–89: good development, wide but not elite separation
