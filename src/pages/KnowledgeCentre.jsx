@@ -174,6 +174,7 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
       // Increment local display count (server has already tracked the real count)
       if (!isPremium) setChatCount(prev => prev + 1);
     } catch (err) {
+      setBackendStatus('offline');
       updateChat(activeChatId, c => ({ ...c, messages: [...c.messages, { role: 'assistant', content: `⚠ AI error: ${err.message}` }] }));
     } finally {
       setIsTyping(false);
@@ -184,9 +185,9 @@ export default function KnowledgeCentre({ navigate, isPremium, user, page }) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input); }
   }
 
-  const statusColor = backendStatus === 'ok' ? '#22c55e' : backendStatus === 'offline' ? '#FF3B30' : '#eab308';
+  const statusColor = backendStatus === 'ok' ? '#22c55e' : (backendStatus === 'offline' || backendStatus === 'no-key') ? '#FF3B30' : '#eab308';
   const statusText = backendStatus === 'ok' ? '● AI Online'
-    : backendStatus === 'no-key' ? '● AI Offline'
+    : (backendStatus === 'offline' || backendStatus === 'no-key') ? '● AI Offline'
     : '● AI temporarily unavailable';
 
   const NAV_ITEMS = [

@@ -218,6 +218,8 @@ Connective tissue remodelling accompanies hypertrophy. Collagen synthesis (Types
 MOTOR UNIT PHYSIOLOGY & RECRUITMENT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+ABBREVIATIONS AND KEY TERMS: MUR = Motor Unit Recruitment — the process of activating motor units to generate force. MU = Motor Unit. MPS = Muscle Protein Synthesis. MPB = Muscle Protein Breakdown. RIR = Reps In Reserve. MRV = Maximum Recoverable Volume. MAV = Maximum Adaptive Volume. MEV = Minimum Effective Volume. ROM = Range of Motion. SFR = Stimulus to Fatigue Ratio. TUT = Time Under Tension. 1RM = One-Rep Maximum. MVC = Maximal Voluntary Contraction. CNS = Central Nervous System. PNS = Peripheral Nervous System. EMG = Electromyography (measures electrical activity of muscles). DOMS = Delayed Onset Muscle Soreness. RPE = Rate of Perceived Exertion (scale of 1–10, with 10 being maximal effort). When a user uses any of these abbreviations, answer as if they used the full term — never say you don't know what an abbreviation means if it's in this list.
+
 A motor unit consists of one motor neuron and all the muscle fibres it innervates. Small motor units contain 10–180 fibres and are slow-twitch dominant — low force output but highly fatigue-resistant. Large motor units contain 300–2000 or more fibres, are fast-twitch dominant, generate high force, but fatigue rapidly.
 
 Henneman's Size Principle (1957) states that motor units are recruited in strict order of increasing size as force demand rises. At low effort, only small slow-twitch motor units are recruited. As force demand increases, Type IIa motor units are added. Only at near-maximal effort — or when smaller units fatigue during a high-rep set — are the highest-threshold Type IIx motor units recruited. This is the mechanistic reason why training to or near muscular failure is essential for hypertrophy: stopping at RIR 3 or more with submaximal loads means Type IIx motor units are never recruited, and the greatest hypertrophy-potential fibres receive no stimulus.
@@ -337,7 +339,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
 
   if (provider === 'anthropic') {
     const { default: Anthropic } = await import('@anthropic-ai/sdk')
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: 12000 })
     const response = await client.messages.create({
       model: 'claude-haiku-4-5',
       max_tokens: maxTokens,
@@ -349,7 +351,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
 
   if (provider === 'openai') {
     const { default: OpenAI } = await import('openai')
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 12000 })
     const completion = await client.chat.completions.create({
       model: 'gpt-4o-mini',
       max_tokens: maxTokens,
@@ -361,7 +363,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
 
   if (provider === 'groq') {
     const { default: Groq } = await import('groq-sdk')
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY, timeout: 8000 })
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'system', content: systemPrompt }, ...msgs.map(m => ({ role: m.role, content: m.content }))],
@@ -382,7 +384,7 @@ async function callChatProvider(provider, messages, systemPrompt, maxTokens) {
       temperature: 0.35,
       private: true,
     }),
-    signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(15000),
   })
   if (!pollinationsRes.ok) {
     const errText = await pollinationsRes.text().catch(() => '')
